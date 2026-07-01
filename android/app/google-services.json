@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "871767466070",
+    "project_id": "spendly-1c600",
+    "storage_bucket": "spendly-1c600.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:871767466070:android:5d9e4065fde05ad66c1bf7",
+        "android_client_info": {
+          "package_name": "com.surya.spendly"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "871767466070-fuisg5q2ga3pl0os76of6chgnmpofrb8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.surya.spendly",
+            "certificate_hash": "61bbe61bbb9a743405ff842e0062e322800d80f0"
+          }
+        },
+        {
+          "client_id": "871767466070-q7l9tohvnuqkn5v55ll06qo9c0r6uf94.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3yDZnbyQhk3L1Pbb5L6Sw57FX_22zKLc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "871767466070-q7l9tohvnuqkn5v55ll06qo9c0r6uf94.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "871767466070-iks57567uge35et90qordsmrq7joc6f9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.surya.spendly"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
