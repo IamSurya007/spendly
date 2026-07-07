@@ -1,77 +1,213 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_text_styles.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/widgets/transaction_tile.dart';
+import '../../../expenses/screens/add_expense_sheet.dart';
+import '../../../expenses/services/expense_providers.dart';
+import '../widgets/balance_card.dart';
+import '../widgets/quick_actions.dart';
 
-import '../../../auth/domain/repositories/auth_repository.dart';
-
-class HomeScreen extends StatelessWidget {
-  final AuthRepository authRepository;
+class HomeScreen extends ConsumerWidget {
   final User user;
 
-  const HomeScreen({
-    super.key,
-    required this.authRepository,
-    required this.user,
-  });
+  const HomeScreen({super.key, required this.user});
 
-  static const _navy = Color(0xFF0F1729);
-  static const _offWhite = Color(0xFFF0F4FF);
-  static const _slate = Color(0xFF8B95B0);
-  static const _gold = Color(0xFFF5C518);
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _firstName() {
+    final name = user.displayName ?? '';
+    return name.split(' ').first;
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expensesAsync = ref.watch(expensesStreamProvider);
+
     return Scaffold(
-      backgroundColor: _navy,
-      appBar: AppBar(
-        backgroundColor: _navy,
-        elevation: 0,
-        title: const Text(
-          'Spendly',
-          style: TextStyle(color: _offWhite, fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: _slate),
-            tooltip: 'Sign out',
-            onPressed: () async {
-              await authRepository.signOut();
-              // AuthGate's stream will automatically go back to LoginScreen
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 44,
-                backgroundColor: _gold.withOpacity(0.2),
-                backgroundImage: user.photoURL != null
-                    ? NetworkImage(user.photoURL!)
-                    : null,
-                child: user.photoURL == null
-                    ? const Icon(Icons.person, color: _gold, size: 40)
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                user.displayName ?? 'No name',
-                style: const TextStyle(
-                  color: _offWhite,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+      backgroundColor: AppColors.pageBackground,
+      body: CustomScrollView(
+        slivers: [
+          // ── Header ────────────────────────────────
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenPadding,
+                  AppSpacing.lg,
+                  AppSpacing.screenPadding,
+                  AppSpacing.md,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _greeting(),
+                            style: AppTextStyles.greeting,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _firstName(),
+                            style: AppTextStyles.h1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Avatar
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.inputFill,
+                      backgroundImage: user.photoURL != null
+                          ? NetworkImage(user.photoURL!)
+                          : null,
+                      child: user.photoURL == null
+                          ? Text(
+                              _firstName().isNotEmpty
+                                  ? _firstName()[0].toUpperCase()
+                                  : 'U',
+                              style: AppTextStyles.h3.copyWith(
+                                color: AppColors.accent,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                user.email ?? '',
-                style: const TextStyle(color: _slate, fontSize: 14),
-              ),
-            ],
+            ),
           ),
-        ),
+
+          // ── Balance Card ──────────────────────────
+          SliverToBoxAdapter(
+            child: BalanceCard(user: user),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+
+          // ── Quick Actions ─────────────────────────
+          SliverToBoxAdapter(
+            child: QuickActions(
+              onAddExpense: () => showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const AddExpenseSheet(),
+              ),
+              onAddLoan: () {
+                // TODO: navigate to loan add sheet
+              },
+              onAddInvestment: () {
+                // TODO: navigate to investment add sheet
+              },
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+
+          // ── Recent Transactions header ─────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Recent Transactions', style: AppTextStyles.h2),
+                  Text(
+                    'See all',
+                    style: AppTextStyles.label.copyWith(
+                      color: AppColors.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+
+          // ── Transactions list ─────────────────────
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.cardSurface,
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: expensesAsync.when(
+                data: (expenses) {
+                  if (expenses.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: Column(
+                        children: [
+                          const Text('💸', style: TextStyle(fontSize: 36)),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text('No transactions yet',
+                              style: AppTextStyles.h3),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap + to add your first expense',
+                            style: AppTextStyles.caption,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  final recent = expenses.take(5).toList();
+                  return Column(
+                    children: [
+                      for (int i = 0; i < recent.length; i++) ...[
+                        TransactionTile(expense: recent[i]),
+                        if (i < recent.length - 1)
+                          const Divider(
+                            height: 1,
+                            indent: AppSpacing.screenPadding + 44 + AppSpacing.md,
+                            endIndent: AppSpacing.screenPadding,
+                            color: AppColors.borderLight,
+                          ),
+                      ]
+                    ],
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(AppSpacing.xl),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text('Could not load transactions',
+                      style: AppTextStyles.bodySmall),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Bottom padding for nav bar ─────────────
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
