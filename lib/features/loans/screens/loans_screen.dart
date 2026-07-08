@@ -25,12 +25,12 @@ class LoansScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      body: CustomScrollView(
-        slivers: [
-          // ── Header ──
-          SliverToBoxAdapter(
-            child: SafeArea(
-              bottom: false,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            // ── Header ──
+            SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.screenPadding,
@@ -74,7 +74,6 @@ class LoansScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
 
           // ── Summary row ──
           SliverToBoxAdapter(
@@ -180,8 +179,9 @@ class LoansScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class LoanCard extends ConsumerWidget {

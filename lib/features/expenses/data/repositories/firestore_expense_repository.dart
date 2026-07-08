@@ -65,4 +65,46 @@ class FirestoreExpenseRepository implements IExpenseRepository {
       'categories': categories,
     });
   }
+
+  CollectionReference get _merchantRulesRef =>
+      _db.collection('users').doc(_uid).collection('merchant_rules');
+
+  @override
+  Future<void> updateExpense(Expense expense) async {
+    await _expensesRef.doc(expense.id).update(expense.toJson());
+  }
+
+  @override
+  Future<void> setMerchantRule(String merchant, String category) async {
+    final docName = merchant.toLowerCase().trim();
+    if (docName.isEmpty) return;
+    await _merchantRulesRef.doc(docName).set({
+      'merchant': merchant.trim(),
+      'category': category,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<String?> getMerchantRule(String merchant) async {
+    final docName = merchant.toLowerCase().trim();
+    if (docName.isEmpty) return null;
+    final doc = await _merchantRulesRef.doc(docName).get();
+    if (!doc.exists) return null;
+    final data = doc.data() as Map<String, dynamic>?;
+    return data?['category'] as String?;
+  }
+
+  @override
+  Future<void> updateExpensesCategory(String merchant, String newCategory) async {
+    if (merchant.trim().isEmpty) return;
+    final snap = await _expensesRef.where('merchant', isEqualTo: merchant.trim()).get();
+    if (snap.docs.isEmpty) return;
+    
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'category': newCategory});
+    }
+    await batch.commit();
+  }
 }

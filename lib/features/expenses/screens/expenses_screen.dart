@@ -8,6 +8,7 @@ import '../../../core/widgets/transaction_tile.dart';
 import '../../budget/widgets/budget_category_card.dart';
 import '../../expenses/models/expense_model.dart';
 import '../../expenses/services/expense_providers.dart';
+import 'add_expense_sheet.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
@@ -190,10 +191,10 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       itemCount: ExpenseCategories.all.length,
                       itemBuilder: (_, i) {
                         final cat = ExpenseCategories.all[i];
-                        final isSelected = _filterCategory == cat;
+                        final isSelected = _filterCategory == cat.name;
                         return GestureDetector(
                           onTap: () => setState(() =>
-                              _filterCategory = isSelected ? null : cat),
+                              _filterCategory = isSelected ? null : cat.name),
                           child: Container(
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.symmetric(
@@ -207,7 +208,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   Border.all(color: AppColors.borderLight),
                             ),
                             child: Center(child: Text(
-                              '${ExpenseCategories.iconEmoji(cat)} $cat',
+                              '${cat.emoji} ${cat.name}',
                               style: AppTextStyles.caption.copyWith(
                                 color: isSelected
                                     ? Colors.white
@@ -286,7 +287,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                   for (int j = 0;
                                       j < txns.length;
                                       j++) ...[
-                                    TransactionTile(expense: txns[j]),
+                                    TransactionTile(
+                                      expense: txns[j],
+                                      onTap: () => showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => AddExpenseSheet(expense: txns[j]),
+                                      ),
+                                    ),
                                     if (j < txns.length - 1)
                                       const Divider(
                                         height: 1,

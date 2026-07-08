@@ -33,8 +33,34 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> updateExpense(Expense expense) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.updateExpense(expense);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> deleteExpense(String id) async {
     await _repo.deleteExpense(id);
+  }
+
+  Future<void> setMerchantRule(String merchant, String category) async {
+    try {
+      await _repo.setMerchantRule(merchant, category);
+    } catch (_) {}
+  }
+
+  Future<void> updateExpensesCategory(String merchant, String newCategory) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.updateExpensesCategory(merchant, newCategory);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 }
 

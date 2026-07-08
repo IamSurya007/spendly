@@ -8,12 +8,14 @@ class QuickActions extends StatelessWidget {
   final VoidCallback onAddExpense;
   final VoidCallback onAddLoan;
   final VoidCallback onAddInvestment;
+  final VoidCallback onScanSms;
 
   const QuickActions({
     super.key,
     required this.onAddExpense,
     required this.onAddLoan,
     required this.onAddInvestment,
+    required this.onScanSms,
   });
 
   @override
@@ -27,6 +29,11 @@ class QuickActions extends StatelessWidget {
             icon: '➕',
             label: 'Add Expense',
             onTap: onAddExpense,
+          ),
+          _ActionChip(
+            icon: '💬',
+            label: 'Scan SMS',
+            onTap: onScanSms,
           ),
           _ActionChip(
             icon: '🤝',

@@ -13,6 +13,7 @@ abstract interface class IExpenseRepository {
   Stream<List<Expense>> watchExpenses();
 
   Future<void> addExpense(Expense expense);
+  Future<void> updateExpense(Expense expense);
   Future<void> deleteExpense(String id);
 
   /// Budget limits per category for [month] (format: 'yyyy-MM').
@@ -21,4 +22,9 @@ abstract interface class IExpenseRepository {
     String month,
     Map<String, Map<String, dynamic>> categories,
   );
+
+  /// Auto-categorization rule operations
+  Future<void> setMerchantRule(String merchant, String category);
+  Future<String?> getMerchantRule(String merchant);
+  Future<void> updateExpensesCategory(String merchant, String newCategory);
 }

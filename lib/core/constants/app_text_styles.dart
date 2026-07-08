@@ -78,6 +78,7 @@ class AppTextStyles {
         weight: FontWeight.w500,
         color: AppColors.mutedText,
         letterSpacing: 0.2,
+
       );
 
   static TextStyle get labelBold => _style(
@@ -106,6 +107,7 @@ class AppTextStyles {
         fontSize: 15,
         weight: FontWeight.w600,
         letterSpacing: 0.2,
+        color: AppColors.loginOffWhite
       );
 
   // ── Greeting ──────────────────────────────────────────────────────────

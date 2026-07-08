@@ -10,7 +10,24 @@ import '../models/expense_model.dart';
 import '../services/expense_providers.dart';
 
 class AddExpenseSheet extends ConsumerStatefulWidget {
-  const AddExpenseSheet({super.key});
+  final Expense? expense;
+  final double? prefilledAmount;
+  final String? prefilledCategory;
+  final String? prefilledNote;
+  final String? prefilledMerchant;
+  final String? prefilledMethod;
+  final bool? prefilledIsCredit;
+
+  const AddExpenseSheet({
+    super.key,
+    this.expense,
+    this.prefilledAmount,
+    this.prefilledCategory,
+    this.prefilledNote,
+    this.prefilledMerchant,
+    this.prefilledMethod,
+    this.prefilledIsCredit,
+  });
 
   @override
   ConsumerState<AddExpenseSheet> createState() => _AddExpenseSheetState();
@@ -26,6 +43,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   String _selectedMethod = 'upi';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+  bool _isCredit = false;
 
   final List<String> _methods = ['cash', 'upi', 'card'];
   final List<IconData> _methodIcons = [
@@ -37,10 +55,44 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   @override
   void initState() {
     super.initState();
-    // Auto-open numpad
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _amountFocus.requestFocus();
-    });
+    final exp = widget.expense;
+    if (exp != null) {
+      final absAmount = exp.amount.abs();
+      _amountController.text = absAmount == absAmount.toInt() ? absAmount.toInt().toString() : absAmount.toString();
+      _noteController.text = exp.note;
+      _merchantController.text = exp.merchant;
+      _selectedCategory = exp.category;
+      _selectedDate = exp.date;
+      _selectedMethod = _methods.contains(exp.method.toLowerCase()) ? exp.method.toLowerCase() : 'upi';
+      _isCredit = exp.amount < 0;
+    } else {
+      if (widget.prefilledAmount != null && widget.prefilledAmount! > 0) {
+        final amount = widget.prefilledAmount!;
+        _amountController.text = amount == amount.toInt() ? amount.toInt().toString() : amount.toString();
+      }
+      if (widget.prefilledNote != null) {
+        _noteController.text = widget.prefilledNote!;
+      }
+      if (widget.prefilledMerchant != null) {
+        _merchantController.text = widget.prefilledMerchant!;
+      }
+      if (widget.prefilledCategory != null) {
+        _selectedCategory = widget.prefilledCategory!;
+      }
+      if (widget.prefilledMethod != null && _methods.contains(widget.prefilledMethod!.toLowerCase())) {
+        _selectedMethod = widget.prefilledMethod!.toLowerCase();
+      }
+      if (widget.prefilledIsCredit != null) {
+        _isCredit = widget.prefilledIsCredit!;
+        if (_isCredit && widget.prefilledCategory == null) {
+          _selectedCategory = 'Other'; // Better default for income
+        }
+      }
+      // Auto-open numpad only in creation mode
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _amountFocus.requestFocus();
+      });
+    }
   }
 
   @override
@@ -66,36 +118,123 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
     setState(() => _isSaving = true);
 
-    final expense = Expense(
-      id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
-      amount: amount,
-      category: _selectedCategory,
-      note: _noteController.text.trim(),
-      date: _selectedDate,
-      method: _selectedMethod,
-      merchant: _merchantController.text.trim(),
-      createdAt: DateTime.now(),
-    );
+    final savedAmount = _isCredit ? -amount : amount;
+    final cleanMerchant = _merchantController.text.trim();
+    final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
 
-    await ref.read(expenseNotifierProvider.notifier).addExpense(expense);
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '₹${NumberFormat('#,##,###').format(amount)} added to $_selectedCategory',
-          ),
-          backgroundColor: AppColors.primaryNavy,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+    final oldExpense = widget.expense;
+    if (oldExpense != null) {
+      // EDIT MODE
+      final updatedExpense = oldExpense.copyWith(
+        amount: savedAmount,
+        category: _selectedCategory,
+        note: _noteController.text.trim(),
+        date: _selectedDate,
+        method: _selectedMethod,
+        merchant: cleanMerchant,
       );
+
+      final categoryChanged = oldExpense.category != _selectedCategory;
+      bool applyToAll = false;
+
+      if (categoryChanged && cleanMerchant.isNotEmpty) {
+        // Show dialog asking to apply categorization rule to all matching transactions
+        applyToAll = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Apply rule to all?'),
+                content: Text(
+                  'Do you want to update all existing transactions at "$cleanMerchant" to "$_selectedCategory"?',
+                  style: AppTextStyles.bodyMedium,
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text('Only This', style: AppTextStyles.labelBold.copyWith(color: AppColors.mutedText)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryNavy,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text('Update All', style: AppTextStyles.labelBold.copyWith(color: Colors.white)),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+      }
+
+      // Perform database mutations
+      if (applyToAll) {
+        await expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory);
+      }
+      
+      // Save auto-categorizer rule for future captures
+      if (categoryChanged && cleanMerchant.isNotEmpty) {
+        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory);
+      }
+
+      await expenseNotifier.updateExpense(updatedExpense);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              applyToAll
+                  ? 'Updated all transactions at "$cleanMerchant" to $_selectedCategory'
+                  : 'Transaction updated successfully',
+            ),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } else {
+      // ADD MODE
+      final expense = Expense(
+        id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
+        amount: savedAmount,
+        category: _selectedCategory,
+        note: _noteController.text.trim(),
+        date: _selectedDate,
+        method: _selectedMethod,
+        merchant: cleanMerchant,
+        createdAt: DateTime.now(),
+      );
+
+      // Save a category rule for this merchant on manual creation too if entered!
+      if (cleanMerchant.isNotEmpty) {
+        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory);
+      }
+
+      await expenseNotifier.addExpense(expense);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '₹${NumberFormat('#,##,###').format(amount)} ${_isCredit ? "received" : "spent"} added to $_selectedCategory',
+            ),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
     }
 
-    setState(() => _isSaving = false);
+    if (mounted) {
+      setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _pickDate() async {
@@ -149,8 +288,31 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Title
-          Text('Add Expense', style: AppTextStyles.h2),
+          // Title and Segmented Control
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                widget.expense != null
+                    ? (_isCredit ? 'Edit Income' : 'Edit Transaction')
+                    : (_isCredit ? 'Add Income' : 'Add Expense'),
+                style: AppTextStyles.h2,
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.inputFill,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  children: [
+                    _typeTab(label: 'Expense', isSelected: !_isCredit, isCredit: false),
+                    _typeTab(label: 'Income', isSelected: _isCredit, isCredit: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.lg),
 
           // Amount input — large + prominent
@@ -217,9 +379,9 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
               itemBuilder: (_, i) {
                 final cat = ExpenseCategories.all[i];
                 return CategoryChip(
-                  category: cat,
-                  isSelected: _selectedCategory == cat,
-                  onTap: () => setState(() => _selectedCategory = cat),
+                  category: cat.name,
+                  isSelected: _selectedCategory == cat.name,
+                  onTap: () => setState(() => _selectedCategory = cat.name),
                 );
               },
             ),
@@ -345,10 +507,46 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : Text('Save Expense', style: AppTextStyles.buttonText),
+                  : Text(
+                      widget.expense != null
+                          ? 'Save Changes'
+                          : (_isCredit ? 'Save Income' : 'Save Expense'),
+                      style: AppTextStyles.buttonText,
+                    ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _typeTab({required String label, required bool isSelected, required bool isCredit}) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isCredit = isCredit;
+          if (_isCredit) {
+            _selectedCategory = 'Other';
+          } else {
+            _selectedCategory = 'Spends';
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isCredit ? AppColors.incomeGreen : AppColors.expenseRed)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: isSelected ? Colors.white : AppColors.mutedText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

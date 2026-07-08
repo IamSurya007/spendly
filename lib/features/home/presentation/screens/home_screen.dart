@@ -6,14 +6,22 @@ import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/transaction_tile.dart';
 import '../../../expenses/screens/add_expense_sheet.dart';
+import '../../../expenses/screens/sms_scan_sheet.dart';
+import '../../../loans/screens/add_loan_sheet.dart';
+import '../../../investments/screens/add_investment_sheet.dart';
 import '../../../expenses/services/expense_providers.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/quick_actions.dart';
 
 class HomeScreen extends ConsumerWidget {
   final User user;
+  final VoidCallback onSeeAll;
 
-  const HomeScreen({super.key, required this.user});
+  const HomeScreen({
+    super.key,
+    required this.user,
+    required this.onSeeAll,
+  });
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -33,12 +41,12 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      body: CustomScrollView(
-        slivers: [
-          // ── Header ────────────────────────────────
-          SliverToBoxAdapter(
-            child: SafeArea(
-              bottom: false,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            // ── Header ────────────────────────────────
+            SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.screenPadding,
@@ -87,58 +95,72 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
-
-          // ── Balance Card ──────────────────────────
-          SliverToBoxAdapter(
-            child: BalanceCard(user: user),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
-
-          // ── Quick Actions ─────────────────────────
-          SliverToBoxAdapter(
-            child: QuickActions(
-              onAddExpense: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const AddExpenseSheet(),
-              ),
-              onAddLoan: () {
-                // TODO: navigate to loan add sheet
-              },
-              onAddInvestment: () {
-                // TODO: navigate to investment add sheet
-              },
+  
+            // ── Balance Card ──────────────────────────
+            SliverToBoxAdapter(
+              child: BalanceCard(user: user),
             ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
-
-          // ── Recent Transactions header ─────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
+  
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+  
+            // ── Quick Actions ─────────────────────────
+            SliverToBoxAdapter(
+              child: QuickActions(
+                onAddExpense: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const AddExpenseSheet(),
+                ),
+                onScanSms: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const SmsScanSheet(),
+                ),
+                onAddLoan: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const AddLoanSheet(),
+                ),
+                onAddInvestment: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const AddInvestmentSheet(),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Recent Transactions', style: AppTextStyles.h2),
-                  Text(
-                    'See all',
-                    style: AppTextStyles.label.copyWith(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w600,
+            ),
+  
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+  
+            // ── Recent Transactions header ─────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Recent Transactions', style: AppTextStyles.h2),
+                    GestureDetector(
+                      onTap: onSeeAll,
+                      child: Text(
+                        'See all',
+                        style: AppTextStyles.label.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+  
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
           // ── Transactions list ─────────────────────
           SliverToBoxAdapter(
@@ -175,7 +197,15 @@ class HomeScreen extends ConsumerWidget {
                   return Column(
                     children: [
                       for (int i = 0; i < recent.length; i++) ...[
-                        TransactionTile(expense: recent[i]),
+                        TransactionTile(
+                          expense: recent[i],
+                          onTap: () => showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => AddExpenseSheet(expense: recent[i]),
+                          ),
+                        ),
                         if (i < recent.length - 1)
                           const Divider(
                             height: 1,
@@ -209,6 +239,7 @@ class HomeScreen extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 120)),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

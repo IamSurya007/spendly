@@ -17,20 +17,20 @@ class InvestmentsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      body: investmentsAsync.when(
-        data: (investments) {
-          final totalPrincipal =
-              investments.fold(0.0, (s, i) => s + i.principal);
-          final totalMaturity =
-              investments.fold(0.0, (s, i) => s + i.maturityAmount);
-          final fmt = NumberFormat('#,##,###');
-
-          return CustomScrollView(
-            slivers: [
-              // ── Header ──
-              SliverToBoxAdapter(
-                child: SafeArea(
-                  bottom: false,
+      body: SafeArea(
+        bottom: false,
+        child: investmentsAsync.when(
+          data: (investments) {
+            final totalPrincipal =
+                investments.fold(0.0, (s, i) => s + i.principal);
+            final totalMaturity =
+                investments.fold(0.0, (s, i) => s + i.maturityAmount);
+            final fmt = NumberFormat('#,##,###');
+  
+            return CustomScrollView(
+              slivers: [
+                // ── Header ──
+                SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.screenPadding,
@@ -73,7 +73,6 @@ class InvestmentsScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-              ),
 
               // ── Summary banner ──
               SliverToBoxAdapter(
@@ -189,6 +188,7 @@ class InvestmentsScreen extends ConsumerWidget {
         ),
         error: (e, _) => Center(
           child: Text('Error: $e', style: AppTextStyles.bodySmall),
+        ),
         ),
       ),
     );

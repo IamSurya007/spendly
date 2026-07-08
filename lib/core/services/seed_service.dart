@@ -30,17 +30,15 @@ class SeedService {
     final alreadySeeded = await _userRepo.isSeeded();
     if (alreadySeeded) return;
 
-    await Future.wait([
-      _seedExpenses(),
-      _seedLoans(),
-      _seedInvestments(),
-      _seedBudget(),
-    ]);
+    // Seed only the empty budget structure with default limits so category progress bars function correctly.
+    // We skip seeding mock expenses, loans, and investments so the user starts with a clean slate
+    // and populates it via SMS scans or manual entry.
+    await _seedBudget();
 
     await _userRepo.markSeeded();
   }
 
-  Future<void> _seedExpenses() async {
+  Future<void> seedExpenses() async {
     final now = DateTime.now();
     final expenses = [
       Expense(
@@ -120,7 +118,7 @@ class SeedService {
     }
   }
 
-  Future<void> _seedLoans() async {
+  Future<void> seedLoans() async {
     final now = DateTime.now();
     final loans = [
       // You owe (taken)
@@ -253,7 +251,7 @@ class SeedService {
     }
   }
 
-  Future<void> _seedInvestments() async {
+  Future<void> seedInvestments() async {
     final now = DateTime.now();
     final investments = [
       Investment(
@@ -293,17 +291,16 @@ class SeedService {
     final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
     await _expenseRepo.setBudgetForMonth(month, {
-      'PG Rent': {'limit': 8500.0, 'spent': 8460.0},
-      'Spends': {'limit': 5000.0, 'spent': 1949.0},
-      'Dad': {'limit': 3000.0, 'spent': 2000.0},
-      'Friends': {'limit': 2000.0, 'spent': 500.0},
-      'CC 1 Bill': {'limit': 5000.0, 'spent': 4200.0},
-      'CC 2 Bill': {'limit': 3000.0, 'spent': 0.0},
-      'Splitwise': {'limit': 2000.0, 'spent': 1200.0},
-      'Loan': {'limit': 5000.0, 'spent': 0.0},
-      'Office Chitti': {'limit': 1000.0, 'spent': 0.0},
-      'RD': {'limit': 8000.0, 'spent': 0.0},
-      'Other': {'limit': 2000.0, 'spent': 0.0},
+      'Rent': {'limit': 15000.0, 'spent': 0.0},
+      'Groceries': {'limit': 8000.0, 'spent': 0.0},
+      'Restaurants': {'limit': 5000.0, 'spent': 0.0},
+      'Auto / Cab': {'limit': 3000.0, 'spent': 0.0},
+      'CC Bill': {'limit': 25000.0, 'spent': 0.0},
+      'RD / SIP': {'limit': 10000.0, 'spent': 0.0},
+      'OTT / Subscriptions': {'limit': 1000.0, 'spent': 0.0},
+      'Friends': {'limit': 4000.0, 'spent': 0.0},
+      'Family': {'limit': 10000.0, 'spent': 0.0},
+      'Other': {'limit': 5000.0, 'spent': 0.0},
     });
   }
 }

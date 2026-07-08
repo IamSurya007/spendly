@@ -8,11 +8,13 @@ import '../../features/expenses/models/expense_model.dart';
 /// A single transaction row — icon chip · merchant · category · date · amount.
 class TransactionTile extends StatelessWidget {
   final Expense expense;
+  final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
   const TransactionTile({
     super.key,
     required this.expense,
+    this.onTap,
     this.onLongPress,
   });
 
@@ -23,6 +25,7 @@ class TransactionTile extends StatelessWidget {
         '${isDebit ? '-' : '+'}₹${NumberFormat('#,##,###').format(expense.amount.abs())}';
 
     return InkWell(
+      onTap: onTap,
       onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: Padding(
