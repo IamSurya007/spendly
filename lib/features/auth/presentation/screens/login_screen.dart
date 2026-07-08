@@ -20,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen>
   final AuthRepository _authRepository = AuthRepositoryImpl();
 
   bool _isLoading = false;
+  String _loadingLabel = '';
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
@@ -43,35 +44,14 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Future<void> _handleAppleSignIn() async {
+  Future<void> _handleGoogleSignIn() async {
     setState(() {
       _isLoading = true;
+      _loadingLabel = 'Signing in with Google…';
     });
     try {
-      await _authRepository.signInWithApple();
-    } on Exception catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sign in Failed: $e'),
-          backgroundColor: AppColors.expenseRed,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      print('Sign In failed: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _handleSignIn() async {
-    setState(() => _isLoading = true);
-    try {
       await _authRepository.signInWithGoogle();
+      // AuthGate's StreamBuilder will automatically navigate to AppShell
     } on Exception catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,6 +59,31 @@ class _LoginScreenState extends State<LoginScreen>
           content: Text('Sign in failed: $e'),
           backgroundColor: AppColors.expenseRed,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    setState(() {
+      _isLoading = true;
+      _loadingLabel = 'Signing in with Apple…';
+    });
+    try {
+      await _authRepository.signInWithApple();
+    } on Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sign in failed: $e'),
+          backgroundColor: AppColors.expenseRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -90,27 +95,57 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(flex: 2),
-                _buildHero(),
-                const Spacer(flex: 3),
-                _buildGoogleButton(),
-                const SizedBox(height: 12),
-                _buildSignInWithApple(),
-                const SizedBox(height: 20),
-                _buildFootnote(),
-                const SizedBox(height: 36),
-              ],
+      // Full-screen loading overlay — shown during any sign-in attempt
+      body: Stack(
+        children: [
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Spacer(flex: 2),
+                    _buildHero(),
+                    const Spacer(flex: 3),
+                    _buildGoogleButton(),
+                    const SizedBox(height: 12),
+                    _buildAppleButton(),
+                    const SizedBox(height: 20),
+                    _buildFootnote(),
+                    const SizedBox(height: 36),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+
+          // ── Full-screen loading overlay ──
+          if (_isLoading)
+            Positioned.fill(
+              child: Container(
+                color: AppColors.pageBackground.withValues(alpha: 0.92),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2.5,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      _loadingLabel,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.mutedText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -123,12 +158,13 @@ class _LoginScreenState extends State<LoginScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppColors.accent.withOpacity(0.12),
+            color: AppColors.accent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Text(
             'SPENDLY',
             style: TextStyle(
+              fontFamily: 'Inter',
               color: AppColors.accent,
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -141,23 +177,21 @@ class _LoginScreenState extends State<LoginScreen>
         Text(
           'Know where\nevery rupee\ngoes.',
           style: AppTextStyles.balanceLarge.copyWith(
-            color: AppColors.primaryNavy,
             fontSize: 40,
             height: 1.15,
             letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 16),
-        // Subtext
         Text(
           'Track spending, spot patterns,\nand stay on top of your finances.',
           style: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.mutedText,
             fontSize: 15,
+            height: 1.6,
           ),
         ),
         const SizedBox(height: 40),
-        // Floating stat cards
         _buildStatCards(),
       ],
     );
@@ -178,14 +212,15 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _statCard(String value, String label) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding:
+            const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
           color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.borderLight),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryNavy.withOpacity(0.04),
+              color: AppColors.primaryNavy.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -196,18 +231,10 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             Text(
               value,
-              style: AppTextStyles.h3.copyWith(
-                color: AppColors.primaryNavy,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.mutedText,
-              ),
-            ),
+            Text(label, style: AppTextStyles.caption),
           ],
         ),
       ),
@@ -219,45 +246,38 @@ class _LoginScreenState extends State<LoginScreen>
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleSignIn,
+        onPressed: _isLoading ? null : _handleGoogleSignIn,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.cardSurface,
           foregroundColor: AppColors.primaryNavy,
-          disabledBackgroundColor: AppColors.cardSurface.withOpacity(0.5),
+          disabledBackgroundColor: AppColors.cardSurface,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: AppColors.borderLight),
           ),
         ),
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryNavy),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: SvgPicture.asset('assets/images/google_icon.svg'),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Continue with Google',
-                    style: AppTextStyles.buttonText.copyWith(
-                      color: AppColors.primaryNavy,
-                    ),
-                  ),
-                ],
-              ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: SvgPicture.asset('assets/images/google_icon.svg'),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Continue with Google',
+              style: AppTextStyles.buttonText
+                  .copyWith(color: AppColors.primaryNavy),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSignInWithApple() {
+  Widget _buildAppleButton() {
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -266,35 +286,24 @@ class _LoginScreenState extends State<LoginScreen>
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryNavy,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primaryNavy.withOpacity(0.5),
+          disabledBackgroundColor: AppColors.primaryNavy,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: FaIcon(FontAwesomeIcons.apple, size: 18, color: Colors.white),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Sign in with Apple',
-                    style: AppTextStyles.buttonText.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const FaIcon(FontAwesomeIcons.apple, size: 18, color: Colors.white),
+            const SizedBox(width: 12),
+            Text(
+              'Sign in with Apple',
+              style:
+                  AppTextStyles.buttonText.copyWith(color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -304,9 +313,7 @@ class _LoginScreenState extends State<LoginScreen>
       child: Text(
         'By continuing, you agree to our Terms & Privacy Policy.',
         textAlign: TextAlign.center,
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.mutedText,
-        ),
+        style: AppTextStyles.caption.copyWith(color: AppColors.mutedText),
       ),
     );
   }

@@ -1,16 +1,33 @@
+import '../repositories/i_expense_repository.dart';
+import '../repositories/i_investment_repository.dart';
+import '../repositories/i_loan_repository.dart';
+import '../repositories/i_user_repository.dart';
 import '../../features/expenses/models/expense_model.dart';
 import '../../features/investments/models/investment_model.dart';
 import '../../features/loans/models/loan_model.dart';
-import 'firebase_service.dart';
 
 /// Seeds realistic data from the founder's sheet on first launch.
+///
+/// Depends on repository interfaces — completely backend-agnostic.
+/// Works identically whether the backing store is Firestore, Isar, or a mock.
 class SeedService {
-  final FirestoreService _service;
+  final IUserRepository _userRepo;
+  final IExpenseRepository _expenseRepo;
+  final ILoanRepository _loanRepo;
+  final IInvestmentRepository _investmentRepo;
 
-  SeedService(this._service);
+  const SeedService({
+    required IUserRepository userRepo,
+    required IExpenseRepository expenseRepo,
+    required ILoanRepository loanRepo,
+    required IInvestmentRepository investmentRepo,
+  })  : _userRepo = userRepo,
+        _expenseRepo = expenseRepo,
+        _loanRepo = loanRepo,
+        _investmentRepo = investmentRepo;
 
   Future<void> seedIfNeeded() async {
-    final alreadySeeded = await _service.isSeeded();
+    final alreadySeeded = await _userRepo.isSeeded();
     if (alreadySeeded) return;
 
     await Future.wait([
@@ -20,7 +37,7 @@ class SeedService {
       _seedBudget(),
     ]);
 
-    await _service.markSeeded();
+    await _userRepo.markSeeded();
   }
 
   Future<void> _seedExpenses() async {
@@ -99,7 +116,7 @@ class SeedService {
     ];
 
     for (final e in expenses) {
-      await _service.addExpense(e);
+      await _expenseRepo.addExpense(e);
     }
   }
 
@@ -162,7 +179,6 @@ class SeedService {
         notes: 'Personal loan from colleague',
         createdAt: DateTime(now.year, now.month - 1, 20),
       ),
-
       // They owe you (given)
       Loan(
         id: 'seed_loan_given_1',
@@ -233,7 +249,7 @@ class SeedService {
     ];
 
     for (final l in loans) {
-      await _service.addLoan(l);
+      await _loanRepo.addLoan(l);
     }
   }
 
@@ -249,7 +265,8 @@ class SeedService {
         maturityAmount: 33750,
         durationMonths: 12,
         startDate: DateTime(now.year - 1, now.month, 1),
-        maturityDate: DateTime(now.year, now.month, 1).add(const Duration(days: 30)),
+        maturityDate:
+            DateTime(now.year, now.month, 1).add(const Duration(days: 30)),
         institution: 'State Bank of India',
       ),
       Investment(
@@ -267,7 +284,7 @@ class SeedService {
     ];
 
     for (final inv in investments) {
-      await _service.addInvestment(inv);
+      await _investmentRepo.addInvestment(inv);
     }
   }
 
@@ -275,7 +292,7 @@ class SeedService {
     final now = DateTime.now();
     final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
-    await _service.setBudgetForMonth(month, {
+    await _expenseRepo.setBudgetForMonth(month, {
       'PG Rent': {'limit': 8500.0, 'spent': 8460.0},
       'Spends': {'limit': 5000.0, 'spent': 1949.0},
       'Dad': {'limit': 3000.0, 'spent': 2000.0},

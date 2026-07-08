@@ -1,23 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/firebase_service.dart';
-import '../models/investment_model.dart';
-import '../../expenses/services/expense_providers.dart';
 
-/// Stream of all investments.
+import '../../../core/providers/repository_providers.dart';
+import '../../../core/repositories/i_investment_repository.dart';
+import '../models/investment_model.dart';
+
+/// Real-time stream of all investments, sorted by maturity date.
 final investmentsStreamProvider = StreamProvider<List<Investment>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return service.investmentsStream();
+  return ref.watch(investmentRepositoryProvider).watchInvestments();
 });
 
+/// Mutates investments via [IInvestmentRepository].
 class InvestmentNotifier extends StateNotifier<AsyncValue<void>> {
-  InvestmentNotifier(this._service) : super(const AsyncValue.data(null));
+  InvestmentNotifier(this._repo) : super(const AsyncValue.data(null));
 
-  final FirestoreService _service;
+  final IInvestmentRepository _repo;
 
   Future<void> addInvestment(Investment investment) async {
     state = const AsyncValue.loading();
     try {
-      await _service.addInvestment(investment);
+      await _repo.addInvestment(investment);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -25,12 +26,11 @@ class InvestmentNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<void> deleteInvestment(String id) async {
-    await _service.deleteInvestment(id);
+    await _repo.deleteInvestment(id);
   }
 }
 
 final investmentNotifierProvider =
     StateNotifierProvider<InvestmentNotifier, AsyncValue<void>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return InvestmentNotifier(service);
+  return InvestmentNotifier(ref.watch(investmentRepositoryProvider));
 });

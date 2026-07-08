@@ -1,34 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/firebase_service.dart';
-import '../models/loan_model.dart';
-import '../../expenses/services/expense_providers.dart';
 
-/// Stream of all loans.
+import '../../../core/providers/repository_providers.dart';
+import '../../../core/repositories/i_loan_repository.dart';
+import '../models/loan_model.dart';
+
+/// Real-time stream of all loans, newest first.
 final loansStreamProvider = StreamProvider<List<Loan>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return service.loansStream();
+  return ref.watch(loanRepositoryProvider).watchLoans();
 });
 
-/// Loans you have taken (you owe).
-final loansGivenTakenProvider = Provider<({List<Loan> taken, List<Loan> given})>(
-  (ref) {
-    final loans = ref.watch(loansStreamProvider).valueOrNull ?? [];
-    return (
-      taken: loans.where((l) => l.type == 'taken').toList(),
-      given: loans.where((l) => l.type == 'given').toList(),
-    );
-  },
-);
+/// Loans split into taken (you owe) and given (they owe you).
+final loansGivenTakenProvider =
+    Provider<({List<Loan> taken, List<Loan> given})>((ref) {
+  final loans = ref.watch(loansStreamProvider).valueOrNull ?? [];
+  return (
+    taken: loans.where((l) => l.type == 'taken').toList(),
+    given: loans.where((l) => l.type == 'given').toList(),
+  );
+});
 
+/// Mutates loans via [ILoanRepository].
 class LoanNotifier extends StateNotifier<AsyncValue<void>> {
-  LoanNotifier(this._service) : super(const AsyncValue.data(null));
+  LoanNotifier(this._repo) : super(const AsyncValue.data(null));
 
-  final FirestoreService _service;
+  final ILoanRepository _repo;
 
   Future<void> addLoan(Loan loan) async {
     state = const AsyncValue.loading();
     try {
-      await _service.addLoan(loan);
+      await _repo.addLoan(loan);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -36,16 +36,15 @@ class LoanNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<void> updateStatus(String id, String status) async {
-    await _service.updateLoanStatus(id, status);
+    await _repo.updateLoanStatus(id, status);
   }
 
   Future<void> deleteLoan(String id) async {
-    await _service.deleteLoan(id);
+    await _repo.deleteLoan(id);
   }
 }
 
 final loanNotifierProvider =
     StateNotifierProvider<LoanNotifier, AsyncValue<void>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return LoanNotifier(service);
+  return LoanNotifier(ref.watch(loanRepositoryProvider));
 });

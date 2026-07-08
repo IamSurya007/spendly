@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_shell.dart';
 import 'core/constants/app_colors.dart';
-import 'core/services/firebase_service.dart';
+import 'core/models/user_profile.dart';
+import 'core/providers/repository_providers.dart';
 import 'core/services/seed_service.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 
@@ -27,16 +28,17 @@ class AuthGate extends ConsumerWidget {
   }
 }
 
-/// Handles post-auth setup (user doc + seeding) before showing AppShell.
-class _AuthenticatedApp extends StatefulWidget {
+/// Handles post-auth setup (user profile + seeding) before showing AppShell.
+/// Uses [ConsumerStatefulWidget] so it can read repository providers.
+class _AuthenticatedApp extends ConsumerStatefulWidget {
   final User user;
   const _AuthenticatedApp({required this.user});
 
   @override
-  State<_AuthenticatedApp> createState() => _AuthenticatedAppState();
+  ConsumerState<_AuthenticatedApp> createState() => _AuthenticatedAppState();
 }
 
-class _AuthenticatedAppState extends State<_AuthenticatedApp> {
+class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
   bool _ready = false;
 
   @override
@@ -46,16 +48,32 @@ class _AuthenticatedAppState extends State<_AuthenticatedApp> {
   }
 
   Future<void> _setup() async {
-    // Force a token fetch so the Firestore SDK has valid credentials before
-    // we make any reads/writes. Without this there is a race between
-    // authStateChanges() emitting and the ID token propagating, which
-    // produces a spurious permission-denied error.
+    // Force a token refresh so Firestore has valid credentials before any
+    // reads/writes — avoids a spurious permission-denied race on first launch.
     await widget.user.getIdToken();
 
-    final service = FirestoreService();
-    await service.ensureUserDoc(widget.user);
-    final seeder = SeedService(service);
-    await seeder.seedIfNeeded();
+    // Read repos via Riverpod — injected through repository_providers.dart.
+    final userRepo = ref.read(userRepositoryProvider);
+    final expenseRepo = ref.read(expenseRepositoryProvider);
+    final loanRepo = ref.read(loanRepositoryProvider);
+    final investmentRepo = ref.read(investmentRepositoryProvider);
+
+    // Ensure the user document exists in the backing store.
+    await userRepo.ensureUserProfile(UserProfile(
+      uid: widget.user.uid,
+      name: widget.user.displayName ?? '',
+      email: widget.user.email ?? '',
+      photoUrl: widget.user.photoURL ?? '',
+    ));
+
+    // Seed demo data once (no-op on subsequent launches).
+    await SeedService(
+      userRepo: userRepo,
+      expenseRepo: expenseRepo,
+      loanRepo: loanRepo,
+      investmentRepo: investmentRepo,
+    ).seedIfNeeded();
+
     if (mounted) setState(() => _ready = true);
   }
 
@@ -67,7 +85,7 @@ class _AuthenticatedAppState extends State<_AuthenticatedApp> {
 }
 
 // ─────────────────────────────────────────────
-// Splash (shown while Firebase initialises / seeding)
+// Splash shown while Firebase initialises / seeding runs
 // ─────────────────────────────────────────────
 
 class _SplashScreen extends StatelessWidget {
@@ -106,7 +124,7 @@ class _SplashScreen extends StatelessWidget {
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
           ],

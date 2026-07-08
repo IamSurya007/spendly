@@ -1,36 +1,32 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/firebase_service.dart';
+
+import '../../../core/providers/repository_providers.dart';
+import '../../../core/repositories/i_expense_repository.dart';
 import '../models/expense_model.dart';
 
-final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  return FirestoreService();
-});
-
-/// Stream of all expenses for the current user, newest first.
+/// Real-time stream of all expenses, newest first.
 final expensesStreamProvider = StreamProvider<List<Expense>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return service.expensesStream();
+  return ref.watch(expenseRepositoryProvider).watchExpenses();
 });
 
-/// Current month's budget categories.
+/// Current month's budget categories from the repository.
 final budgetProvider =
     FutureProvider<Map<String, Map<String, dynamic>>>((ref) async {
-  final service = ref.watch(firestoreServiceProvider);
   final now = DateTime.now();
   final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-  return service.getBudgetForMonth(month);
+  return ref.watch(expenseRepositoryProvider).getBudgetForMonth(month);
 });
 
-/// Notifier to add/delete expenses.
+/// Mutates expenses via [IExpenseRepository].
 class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
-  ExpenseNotifier(this._service) : super(const AsyncValue.data(null));
+  ExpenseNotifier(this._repo) : super(const AsyncValue.data(null));
 
-  final FirestoreService _service;
+  final IExpenseRepository _repo;
 
   Future<void> addExpense(Expense expense) async {
     state = const AsyncValue.loading();
     try {
-      await _service.addExpense(expense);
+      await _repo.addExpense(expense);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -38,14 +34,13 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<void> deleteExpense(String id) async {
-    await _service.deleteExpense(id);
+    await _repo.deleteExpense(id);
   }
 }
 
 final expenseNotifierProvider =
     StateNotifierProvider<ExpenseNotifier, AsyncValue<void>>((ref) {
-  final service = ref.watch(firestoreServiceProvider);
-  return ExpenseNotifier(service);
+  return ExpenseNotifier(ref.watch(expenseRepositoryProvider));
 });
 
 /// Computed: total income (credit) for the current month.
@@ -54,7 +49,7 @@ final monthlyIncomeProvider = Provider<double>((ref) {
   final now = DateTime.now();
   return expenses
       .where((e) => e.date.year == now.year && e.date.month == now.month)
-      .where((e) => e.amount < 0) // negative = credit in this model
+      .where((e) => e.amount < 0) // negative = credit
       .fold(0.0, (sum, e) => sum + e.amount.abs());
 });
 
