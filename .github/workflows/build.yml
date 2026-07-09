@@ -20,7 +20,17 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+      - name: Create key.properties
+        run: |
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../app/upload-keystore.jks
+          EOF
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -42,36 +52,36 @@ jobs:
           name: android-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-  build-ios:
-    name: Build iOS App
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build iOS (No Code Sign)
-        run: flutter build ios --release --no-codesign
-
-      - name: Zip iOS Build
-        run: |
-          cd build/ios/iphoneos
-          zip -r ../../../ios-release.zip Runner.app
-
-      - name: Upload iOS Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-release-app
-          path: ios-release.zip
+#  build-ios:
+#    name: Build iOS App
+#    runs-on: macos-latest
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Set up Xcode
+#        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+#
+#      - name: Set up Flutter
+#        uses: subosito/flutter-action@v2
+#        with:
+#          channel: 'stable'
+#          cache: true
+#
+#      - name: Install dependencies
+#        run: flutter pub get
+#
+#      - name: Build iOS (No Code Sign)
+#        run: flutter build ios --release --no-codesign
+#
+#      - name: Zip iOS Build
+#        run: |
+#          cd build/ios/iphoneos
+#          zip -r ../../../ios-release.zip Runner.app
+#
+#      - name: Upload iOS Build Artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ios-release-app
+#          path: ios-release.zip
