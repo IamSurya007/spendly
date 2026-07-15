@@ -33,6 +33,11 @@ class FirestoreLoanRepository implements ILoanRepository {
   }
 
   @override
+  Future<void> updateLoan(Loan loan) async {
+    await _loansRef.doc(loan.id).update(loan.toJson());
+  }
+
+  @override
   Future<void> updateLoanStatus(String id, String status) async {
     await _loansRef.doc(id).update({'status': status});
   }

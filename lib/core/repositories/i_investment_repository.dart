@@ -10,5 +10,6 @@ abstract interface class IInvestmentRepository {
   Stream<List<Investment>> watchInvestments();
 
   Future<void> addInvestment(Investment investment);
+  Future<void> updateInvestment(Investment investment);
   Future<void> deleteInvestment(String id);
 }

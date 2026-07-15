@@ -33,6 +33,11 @@ class FirestoreInvestmentRepository implements IInvestmentRepository {
   }
 
   @override
+  Future<void> updateInvestment(Investment investment) async {
+    await _investmentsRef.doc(investment.id).update(investment.toJson());
+  }
+
+  @override
   Future<void> deleteInvestment(String id) async {
     await _investmentsRef.doc(id).delete();
   }

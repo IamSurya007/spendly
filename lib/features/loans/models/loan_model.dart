@@ -6,6 +6,7 @@ class Loan {
   final String name;
   final double principal;
   final double total;
+  final double interestRate;
   final DateTime? repaymentDate;
   final String status; // active | paid | overdue
   final String notes;
@@ -17,6 +18,7 @@ class Loan {
     required this.name,
     required this.principal,
     required this.total,
+    this.interestRate = 0.0,
     this.repaymentDate,
     this.status = 'active',
     this.notes = '',
@@ -30,6 +32,7 @@ class Loan {
       name: json['name'] as String? ?? '',
       principal: (json['principal'] as num).toDouble(),
       total: (json['total'] as num).toDouble(),
+      interestRate: (json['interestRate'] as num?)?.toDouble() ?? 0.0,
       repaymentDate: json['repaymentDate'] != null
           ? (json['repaymentDate'] as Timestamp).toDate()
           : null,
@@ -44,6 +47,7 @@ class Loan {
         'name': name,
         'principal': principal,
         'total': total,
+        'interestRate': interestRate,
         'repaymentDate':
             repaymentDate != null ? Timestamp.fromDate(repaymentDate!) : null,
         'status': status,
@@ -57,6 +61,7 @@ class Loan {
     String? name,
     double? principal,
     double? total,
+    double? interestRate,
     DateTime? repaymentDate,
     String? status,
     String? notes,
@@ -68,11 +73,20 @@ class Loan {
       name: name ?? this.name,
       principal: principal ?? this.principal,
       total: total ?? this.total,
+      interestRate: interestRate ?? this.interestRate,
       repaymentDate: repaymentDate ?? this.repaymentDate,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
     );
+  }
+
+  double get currentTotal {
+    if (status == 'paid') return total;
+    if (interestRate <= 0.0) return principal;
+    final days = DateTime.now().difference(createdAt).inDays;
+    if (days <= 0) return principal;
+    return principal * (1.0 + (interestRate / 100.0) * (days / 365.0));
   }
 
   int? get daysRemaining {

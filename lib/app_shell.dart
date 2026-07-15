@@ -6,6 +6,8 @@ import 'core/constants/app_colors.dart';
 import 'core/providers/repository_providers.dart';
 import 'core/services/sms_parser_service.dart';
 import 'features/expenses/screens/add_expense_sheet.dart';
+import 'features/expenses/models/expense_model.dart';
+import 'features/expenses/services/expense_providers.dart';
 import 'features/home/presentation/screens/home_screen.dart';
 import 'features/expenses/screens/expenses_screen.dart';
 import 'features/loans/screens/loans_screen.dart';
@@ -35,13 +37,6 @@ class _AppShellState extends ConsumerState<AppShell> {
   int _currentIndex = 0;
   final _smsService = SmsParserService();
 
-  // Nav index 2 is the FAB — map it to page 0 so the stack index is always valid.
-  // Real page indices: 0→Home, 1→Expenses, 2→Loans, 3→Investments
-  static int _navToStack(int navIndex) {
-    const map = {0: 0, 1: 1, 2: 0, 3: 2, 4: 3};
-    return map[navIndex] ?? 0;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -51,67 +46,102 @@ class _AppShellState extends ConsumerState<AppShell> {
   void _initSmsCapture() async {
     // Listen for live SMS transactions captured while app is open
     _smsService.setIncomingTransactionListener((txn) async {
-      final ruleCategory = await ref.read(expenseRepositoryProvider).getMerchantRule(txn.merchant);
-      
-      if (mounted) {
-        _openAddExpense(
-          prefilledAmount: txn.amount,
-          prefilledMerchant: txn.merchant,
-          prefilledNote: 'Auto-captured from SMS',
-          prefilledCategory: ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other'),
-          prefilledMethod: 'upi',
-          prefilledIsCredit: !txn.isDebit,
-        );
-      }
+      await _autoSaveSmsTransaction(txn);
     });
 
     // Check for pending notification tap transactions
     final pending = await _smsService.getPendingTransaction();
     if (pending != null) {
-      final ruleCategory = await ref.read(expenseRepositoryProvider).getMerchantRule(pending.merchant);
-      
-      if (mounted) {
-        _openAddExpense(
-          prefilledAmount: pending.amount,
-          prefilledMerchant: pending.merchant,
-          prefilledNote: 'Auto-captured from SMS',
-          prefilledCategory: ruleCategory ?? (pending.isDebit ? 'Spends' : 'Other'),
-          prefilledMethod: 'upi',
-          prefilledIsCredit: !pending.isDebit,
-        );
+      await _autoSaveSmsTransaction(pending);
+    }
+  }
+
+  Future<void> _autoSaveSmsTransaction(ParsedSms txn) async {
+    final expenseRepo = ref.read(expenseRepositoryProvider);
+    final ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
+    
+    // Heuristics mapping to new category names
+    String category = ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other');
+    if (ruleCategory == null) {
+      final cleanMerchant = txn.merchant.toLowerCase();
+      if (cleanMerchant.contains('rent')) {
+        category = 'Rent';
+      } else if (cleanMerchant.contains('swiggy') || cleanMerchant.contains('zomato') || cleanMerchant.contains('dining') || cleanMerchant.contains('restaurant') || cleanMerchant.contains('eats')) {
+        category = 'Restaurants';
+      } else if (cleanMerchant.contains('grocer') || cleanMerchant.contains('jiomart') || cleanMerchant.contains('blinkit') || cleanMerchant.contains('bigbasket')) {
+        category = 'Groceries';
+      } else if (cleanMerchant.contains('coffee') || cleanMerchant.contains('starbucks') || cleanMerchant.contains('chai')) {
+        category = 'Coffee & Snacks';
+      } else if (cleanMerchant.contains('electricity') || cleanMerchant.contains('power')) {
+        category = 'Electricity';
+      } else if (cleanMerchant.contains('water')) {
+        category = 'Water Bill';
+      } else if (cleanMerchant.contains('gas') || cleanMerchant.contains('indane') || cleanMerchant.contains('hp')) {
+        category = 'Gas';
+      } else if (cleanMerchant.contains('wifi') || cleanMerchant.contains('internet') || cleanMerchant.contains('actfibernet') || cleanMerchant.contains('broadband')) {
+        category = 'Internet';
+      } else if (cleanMerchant.contains('ola') || cleanMerchant.contains('uber') || cleanMerchant.contains('cab') || cleanMerchant.contains('auto')) {
+        category = 'Auto / Cab';
+      } else if (cleanMerchant.contains('metro') || cleanMerchant.contains('bus') || cleanMerchant.contains('train') || cleanMerchant.contains('irctc')) {
+        category = 'Public Transport';
+      } else if (cleanMerchant.contains('fuel') || cleanMerchant.contains('petrol') || cleanMerchant.contains('shell') || cleanMerchant.contains('iocl') || cleanMerchant.contains('hpcl')) {
+        category = 'Fuel';
+      } else if (cleanMerchant.contains('cc bill') || cleanMerchant.contains('credit card') || cleanMerchant.contains('card bill')) {
+        category = 'CC Bill';
+      } else if (cleanMerchant.contains('splitwise')) {
+        category = 'Splitwise';
       }
+    }
+
+    final savedAmount = txn.isDebit ? txn.amount : -txn.amount;
+
+    final expense = Expense(
+      id: 'exp_sms_${txn.date.millisecondsSinceEpoch}',
+      amount: savedAmount,
+      category: category,
+      note: 'Auto-captured from SMS',
+      date: txn.date,
+      method: 'upi',
+      merchant: txn.merchant,
+      createdAt: DateTime.now(),
+    );
+
+    // Save mapping rule if it didn't exist
+    if (txn.merchant.isNotEmpty && ruleCategory == null) {
+      await ref.read(expenseNotifierProvider.notifier).setMerchantRule(txn.merchant, category);
+    }
+
+    await ref.read(expenseNotifierProvider.notifier).addExpense(expense);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Auto-saved: ₹${txn.amount} ${txn.isDebit ? "spent" : "received"} at ${txn.merchant} ($category)',
+          ),
+          backgroundColor: AppColors.primaryNavy,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(
+            label: 'EDIT',
+            textColor: Colors.white,
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => AddExpenseSheet(expense: expense),
+              );
+            },
+          ),
+        ),
+      );
     }
   }
 
   void _handleNavTap(int index) {
-    if (index == 2) {
-      _openAddExpense();
-      return;
-    }
     setState(() => _currentIndex = index);
-  }
-
-  void _openAddExpense({
-    double? prefilledAmount,
-    String? prefilledCategory,
-    String? prefilledNote,
-    String? prefilledMerchant,
-    String? prefilledMethod,
-    bool? prefilledIsCredit,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => AddExpenseSheet(
-        prefilledAmount: prefilledAmount,
-        prefilledCategory: prefilledCategory,
-        prefilledNote: prefilledNote,
-        prefilledMerchant: prefilledMerchant,
-        prefilledMethod: prefilledMethod,
-        prefilledIsCredit: prefilledIsCredit,
-      ),
-    );
   }
 
   @override
@@ -120,7 +150,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       backgroundColor: AppColors.pageBackground,
       extendBody: true,
       body: IndexedStack(
-        index: _navToStack(_currentIndex),
+        index: _currentIndex,
         children: [
           HomeScreen(
             user: widget.user,
@@ -134,7 +164,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       bottomNavigationBar: AppBottomNav(
         currentIndex: _currentIndex,
         onTap: _handleNavTap,
-        onAddTap: _openAddExpense,
       ),
     );
   }

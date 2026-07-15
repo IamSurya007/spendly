@@ -8,7 +8,8 @@ import '../models/investment_model.dart';
 import '../services/investment_providers.dart';
 
 class AddInvestmentSheet extends ConsumerStatefulWidget {
-  const AddInvestmentSheet({super.key});
+  final Investment? investment;
+  const AddInvestmentSheet({super.key, this.investment});
 
   @override
   ConsumerState<AddInvestmentSheet> createState() =>
@@ -23,8 +24,34 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
   final _rateController = TextEditingController();
 
   String _type = 'RD';
-  final DateTime _startDate = DateTime.now();
+  DateTime _startDate = DateTime.now();
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final inv = widget.investment;
+    if (inv != null) {
+      _nameController.text = inv.name;
+      _monthlyController.text = inv.monthlyAmount == inv.monthlyAmount.toInt()
+          ? inv.monthlyAmount.toInt().toString()
+          : inv.monthlyAmount.toString();
+      _institutionController.text = inv.institution;
+      _durationController.text = inv.durationMonths.toString();
+      _type = inv.type;
+      _startDate = inv.startDate;
+
+      final principal = inv.monthlyAmount * inv.durationMonths;
+      if (principal > 0 && inv.durationMonths > 0) {
+        final ratio = inv.maturityAmount / principal;
+        final r = (ratio - 1) * 2 / (inv.durationMonths + 1);
+        final rate = r * 12 * 100;
+        _rateController.text = rate > 0 ? rate.toStringAsFixed(1) : '7.0';
+      } else {
+        _rateController.text = '7.0';
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -47,6 +74,27 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
     return maturity;
   }
 
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primaryNavy,
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _startDate = picked);
+    }
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final monthlyText = _monthlyController.text.trim();
@@ -65,22 +113,41 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
 
     setState(() => _isSaving = true);
 
-    final investment = Investment(
-      id: 'inv_${DateTime.now().millisecondsSinceEpoch}',
-      type: _type,
-      name: name,
-      monthlyAmount: monthly,
-      principal: principal,
-      maturityAmount: maturity > 0 ? maturity : principal,
-      durationMonths: duration,
-      startDate: _startDate,
-      maturityDate: maturityDate,
-      institution: _institutionController.text.trim(),
-    );
-
-    await ref
-        .read(investmentNotifierProvider.notifier)
-        .addInvestment(investment);
+    final inv = widget.investment;
+    if (inv != null) {
+      // EDIT MODE
+      final updated = inv.copyWith(
+        type: _type,
+        name: name,
+        monthlyAmount: monthly,
+        principal: principal,
+        maturityAmount: maturity > 0 ? maturity : principal,
+        durationMonths: duration,
+        startDate: _startDate,
+        maturityDate: maturityDate,
+        institution: _institutionController.text.trim(),
+      );
+      await ref
+          .read(investmentNotifierProvider.notifier)
+          .updateInvestment(updated);
+    } else {
+      // ADD MODE
+      final investment = Investment(
+        id: 'inv_${DateTime.now().millisecondsSinceEpoch}',
+        type: _type,
+        name: name,
+        monthlyAmount: monthly,
+        principal: principal,
+        maturityAmount: maturity > 0 ? maturity : principal,
+        durationMonths: duration,
+        startDate: _startDate,
+        maturityDate: maturityDate,
+        institution: _institutionController.text.trim(),
+      );
+      await ref
+          .read(investmentNotifierProvider.notifier)
+          .addInvestment(investment);
+    }
 
     if (mounted) Navigator.pop(context);
     setState(() => _isSaving = false);
@@ -120,7 +187,7 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text('Add Investment', style: AppTextStyles.h2),
+            Text(widget.investment != null ? 'Edit Investment' : 'Add Investment', style: AppTextStyles.h2),
             const SizedBox(height: AppSpacing.md),
 
             // Type
@@ -200,6 +267,39 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Start Date Selector
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Start Date', style: AppTextStyles.label),
+                const SizedBox(height: AppSpacing.xs),
+                GestureDetector(
+                  onTap: _pickStartDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputFill,
+                      borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.primaryNavy),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          DateFormat('d MMM yyyy').format(_startDate),
+                          style: AppTextStyles.bodyMedium,
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primaryNavy),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
 
             // Maturity preview
             if (monthly > 0 && duration > 0) ...[
@@ -270,7 +370,7 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : Text('Save Investment',
+                    : Text(widget.investment != null ? 'Save Changes' : 'Save Investment',
                         style: AppTextStyles.buttonText),
               ),
             ),

@@ -19,9 +19,9 @@ class LoansScreen extends ConsumerWidget {
 
     final fmt = NumberFormat('#,##,###');
     final totalOwed =
-        taken.where((l) => l.status != 'paid').fold(0.0, (s, l) => s + l.total);
+        taken.where((l) => l.status != 'paid').fold(0.0, (s, l) => s + l.currentTotal);
     final totalOwedToMe =
-        given.where((l) => l.status != 'paid').fold(0.0, (s, l) => s + l.total);
+        given.where((l) => l.status != 'paid').fold(0.0, (s, l) => s + l.currentTotal);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -135,7 +135,18 @@ class LoansScreen extends ConsumerWidget {
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) => LoanCard(loan: taken[i]),
+                (ctx, i) {
+                  final loan = taken[i];
+                  return GestureDetector(
+                    onTap: () => showModalBottomSheet(
+                      context: ctx,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => AddLoanSheet(loan: loan),
+                    ),
+                    child: LoanCard(loan: loan),
+                  );
+                },
                 childCount: taken.length,
               ),
             ),
@@ -171,7 +182,18 @@ class LoansScreen extends ConsumerWidget {
           else
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (ctx, i) => LoanCard(loan: given[i]),
+                (ctx, i) {
+                  final loan = given[i];
+                  return GestureDetector(
+                    onTap: () => showModalBottomSheet(
+                      context: ctx,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => AddLoanSheet(loan: loan),
+                    ),
+                    child: LoanCard(loan: loan),
+                  );
+                },
                 childCount: given.length,
               ),
             ),
@@ -301,7 +323,7 @@ class LoanCard extends ConsumerWidget {
               Expanded(
                 child: _LoanStat(
                   label: 'Total',
-                  value: '₹${fmt.format(loan.total)}',
+                  value: '₹${fmt.format(loan.currentTotal)}',
                   valueStyle: AppTextStyles.h3.copyWith(
                     color: isGiven
                         ? AppColors.incomeGreen
@@ -349,9 +371,13 @@ class LoanCard extends ConsumerWidget {
                 _ActionButton(
                   label: 'Mark Paid',
                   onTap: () {
+                    final paidLoan = loan.copyWith(
+                      status: 'paid',
+                      total: loan.currentTotal,
+                    );
                     ref
                         .read(loanNotifierProvider.notifier)
-                        .updateStatus(loan.id, 'paid');
+                        .updateLoan(paidLoan);
                   },
                 ),
               ],

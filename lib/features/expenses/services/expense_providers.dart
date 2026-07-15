@@ -62,6 +62,24 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> updateBudgetLimit(String category, double limit) async {
+    state = const AsyncValue.loading();
+    try {
+      final now = DateTime.now();
+      final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final currentBudget = await _repo.getBudgetForMonth(month);
+
+      final updatedCategoryData = Map<String, dynamic>.from(currentBudget[category] ?? {'spent': 0.0});
+      updatedCategoryData['limit'] = limit;
+
+      currentBudget[category] = updatedCategoryData;
+      await _repo.setBudgetForMonth(month, currentBudget);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
 }
 
 final expenseNotifierProvider =

@@ -37,6 +37,108 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     }
   }
 
+  void _showEditBudgetDialog(BuildContext context, String category, double currentLimit) {
+    final controller = TextEditingController(
+        text: currentLimit > 0 ? currentLimit.toInt().toString() : '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Set Budget for $category'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Monthly Limit (₹)',
+            hintText: 'e.g. 5000',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final limit = double.tryParse(controller.text.trim()) ?? 0.0;
+              await ref.read(expenseNotifierProvider.notifier).updateBudgetLimit(category, limit);
+              ref.invalidate(budgetProvider);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryNavy,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSetBudgetSheet(BuildContext context, Map<String, Map<String, dynamic>> currentBudget) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Set Budgets', style: AppTextStyles.h2),
+              const SizedBox(height: AppSpacing.sm),
+              Text('Tap any category to set or edit its monthly limit', style: AppTextStyles.caption),
+              const Divider(height: AppSpacing.lg),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: ExpenseCategories.all.length,
+                  itemBuilder: (itemCtx, index) {
+                    final cat = ExpenseCategories.all[index];
+                    final limit = (currentBudget[cat.name]?['limit'] as num?)?.toDouble() ?? 0.0;
+                    
+                    return ListTile(
+                      leading: Text(cat.emoji, style: const TextStyle(fontSize: 24)),
+                      title: Text(cat.name, style: AppTextStyles.h3),
+                      trailing: Text(
+                        limit > 0 ? '₹${NumberFormat('#,##,###').format(limit)}' : 'No Limit',
+                        style: AppTextStyles.label.copyWith(
+                          color: limit > 0 ? AppColors.incomeGreen : AppColors.mutedText,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showEditBudgetDialog(context, cat.name, limit);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final expensesAsync = ref.watch(expensesStreamProvider);
@@ -108,11 +210,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 const SliverToBoxAdapter(
                     child: SizedBox(height: AppSpacing.md)),
 
-                // ── Budget category cards ──
                 SliverToBoxAdapter(
                   child: budgetAsync.when(
                     data: (budget) {
-                      if (budget.isEmpty) return const SizedBox.shrink();
                       // Compute actual spending per category from Firestore
                       final spent = <String, double>{};
                       for (final e in monthExpenses) {
@@ -126,22 +226,60 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.screenPadding,
                             ),
-                            child: Text('Category Budgets',
-                                style: AppTextStyles.h2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Category Budgets', style: AppTextStyles.h2),
+                                GestureDetector(
+                                  onTap: () => _openSetBudgetSheet(context, budget),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryNavy,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      'Set Budget',
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          ...budget.entries.map((entry) {
-                            final limit =
-                                (entry.value['limit'] as num).toDouble();
-                            final actualSpent =
-                                spent[entry.key] ?? 0.0;
-                            return BudgetCategoryCard(
-                              category: entry.key,
-                              emoji: ExpenseCategories.iconEmoji(entry.key),
-                              spent: actualSpent,
-                              limit: limit,
-                            );
-                          }),
+                          if (budget.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.screenPadding,
+                                vertical: AppSpacing.md,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'No budgets configured. Tap "Set Budget" to define limits!',
+                                  style: AppTextStyles.caption,
+                                ),
+                              ),
+                            )
+                          else
+                            ...budget.entries.map((entry) {
+                              final limit =
+                                  (entry.value['limit'] as num).toDouble();
+                              final actualSpent =
+                                  spent[entry.key] ?? 0.0;
+                              return GestureDetector(
+                                onTap: () => _showEditBudgetDialog(context, entry.key, limit),
+                                child: BudgetCategoryCard(
+                                  category: entry.key,
+                                  emoji: ExpenseCategories.iconEmoji(entry.key),
+                                  spent: actualSpent,
+                                  limit: limit,
+                                ),
+                              );
+                            }),
                           const SizedBox(height: AppSpacing.lg),
                         ],
                       );

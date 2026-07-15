@@ -10,6 +10,7 @@ abstract interface class ILoanRepository {
   Stream<List<Loan>> watchLoans();
 
   Future<void> addLoan(Loan loan);
+  Future<void> updateLoan(Loan loan);
   Future<void> updateLoanStatus(String id, String status);
   Future<void> deleteLoan(String id);
 }

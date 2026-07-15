@@ -8,7 +8,8 @@ import '../models/loan_model.dart';
 import '../services/loan_providers.dart';
 
 class AddLoanSheet extends ConsumerStatefulWidget {
-  const AddLoanSheet({super.key});
+  final Loan? loan;
+  const AddLoanSheet({super.key, this.loan});
 
   @override
   ConsumerState<AddLoanSheet> createState() => _AddLoanSheetState();
@@ -17,27 +18,66 @@ class AddLoanSheet extends ConsumerStatefulWidget {
 class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
   final _nameController = TextEditingController();
   final _principalController = TextEditingController();
-  final _totalController = TextEditingController();
+  final _interestRateController = TextEditingController();
   final _notesController = TextEditingController();
 
   String _type = 'given'; // given | taken
+  DateTime _startDate = DateTime.now();
   DateTime? _repaymentDate;
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final loan = widget.loan;
+    if (loan != null) {
+      _nameController.text = loan.name;
+      _principalController.text = loan.principal == loan.principal.toInt()
+          ? loan.principal.toInt().toString()
+          : loan.principal.toString();
+      _interestRateController.text = loan.interestRate == loan.interestRate.toInt()
+          ? loan.interestRate.toInt().toString()
+          : loan.interestRate.toString();
+      _notesController.text = loan.notes;
+      _type = loan.type;
+      _startDate = loan.createdAt;
+      _repaymentDate = loan.repaymentDate;
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _principalController.dispose();
-    _totalController.dispose();
+    _interestRateController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primaryNavy,
+            onPrimary: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _startDate = picked);
   }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 30)),
-      firstDate: DateTime.now(),
+      initialDate: _repaymentDate ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime(2000),
       lastDate: DateTime(2030),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
@@ -58,25 +98,45 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
     if (name.isEmpty || principalText.isEmpty) return;
 
     final principal = double.tryParse(principalText) ?? 0;
-    final totalText = _totalController.text.trim();
-    final total =
-        totalText.isNotEmpty ? (double.tryParse(totalText) ?? principal) : principal;
+    final interestRate = double.tryParse(_interestRateController.text.trim()) ?? 0.0;
+
+    // Calculate total based on interest rate accrued up to today
+    final days = DateTime.now().difference(_startDate).inDays;
+    final elapsedDays = days > 0 ? days : 0;
+    final interest = principal * (interestRate / 100.0) * (elapsedDays / 365.0);
+    final calculatedTotal = principal + interest;
 
     setState(() => _isSaving = true);
 
-    final loan = Loan(
-      id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
-      type: _type,
-      name: name,
-      principal: principal,
-      total: total,
-      repaymentDate: _repaymentDate,
-      status: 'active',
-      notes: _notesController.text.trim(),
-      createdAt: DateTime.now(),
-    );
-
-    await ref.read(loanNotifierProvider.notifier).addLoan(loan);
+    final oldLoan = widget.loan;
+    if (oldLoan != null) {
+      // EDIT MODE
+      final updatedLoan = oldLoan.copyWith(
+        type: _type,
+        name: name,
+        principal: principal,
+        total: oldLoan.status == 'paid' ? oldLoan.total : calculatedTotal,
+        interestRate: interestRate,
+        repaymentDate: _repaymentDate,
+        createdAt: _startDate,
+      );
+      await ref.read(loanNotifierProvider.notifier).updateLoan(updatedLoan);
+    } else {
+      // ADD MODE
+      final loan = Loan(
+        id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
+        type: _type,
+        name: name,
+        principal: principal,
+        total: calculatedTotal,
+        interestRate: interestRate,
+        repaymentDate: _repaymentDate,
+        status: 'active',
+        notes: _notesController.text.trim(),
+        createdAt: _startDate,
+      );
+      await ref.read(loanNotifierProvider.notifier).addLoan(loan);
+    }
 
     if (mounted) {
       Navigator.pop(context);
@@ -116,7 +176,7 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text('Add Loan', style: AppTextStyles.h2),
+            Text(widget.loan != null ? 'Edit Loan' : 'Add Loan', style: AppTextStyles.h2),
             const SizedBox(height: AppSpacing.md),
 
             // Type toggle
@@ -160,9 +220,9 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _Field(
-                    controller: _totalController,
-                    label: 'Total (w/ interest) ₹',
-                    hint: 'same as principal',
+                    controller: _interestRateController,
+                    label: 'Interest Rate %',
+                    hint: '0.0',
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -170,6 +230,43 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
             ),
             const SizedBox(height: AppSpacing.sm),
             _Field(controller: _notesController, label: 'Notes', hint: 'Optional'),
+            const SizedBox(height: AppSpacing.sm),
+
+            // Start Date picker
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Start Date', style: AppTextStyles.label),
+                const SizedBox(height: AppSpacing.xs),
+                GestureDetector(
+                  onTap: _pickStartDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputFill,
+                      borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
+                      border: Border.all(color: AppColors.borderLight),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded,
+                            size: 16, color: AppColors.primaryNavy),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Started: ${DateFormat('d MMM yyyy').format(_startDate)}',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.primaryNavy,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primaryNavy),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.sm),
 
             // Repayment date
@@ -224,7 +321,7 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : Text('Save Loan', style: AppTextStyles.buttonText),
+                    : Text(widget.loan != null ? 'Save Changes' : 'Save Loan', style: AppTextStyles.buttonText),
               ),
             ),
           ],

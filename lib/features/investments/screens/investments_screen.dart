@@ -174,7 +174,18 @@ class InvestmentsScreen extends ConsumerWidget {
               else
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => InvestmentCard(investment: investments[i]),
+                    (ctx, i) {
+                      final inv = investments[i];
+                      return GestureDetector(
+                        onTap: () => showModalBottomSheet(
+                          context: ctx,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => AddInvestmentSheet(investment: inv),
+                        ),
+                        child: InvestmentCard(investment: inv),
+                      );
+                    },
                     childCount: investments.length,
                   ),
                 ),

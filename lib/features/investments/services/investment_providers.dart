@@ -25,6 +25,16 @@ class InvestmentNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<void> updateInvestment(Investment investment) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.updateInvestment(investment);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> deleteInvestment(String id) async {
     await _repo.deleteInvestment(id);
   }

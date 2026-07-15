@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
-import '../../../core/widgets/category_chip.dart';
 import '../models/expense_model.dart';
 import '../services/expense_providers.dart';
 
@@ -39,7 +38,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   final _merchantController = TextEditingController();
   final _amountFocus = FocusNode();
 
-  String _selectedCategory = 'Spends';
+  String? _selectedCategory;
   String _selectedMethod = 'upi';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
@@ -61,7 +60,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       _amountController.text = absAmount == absAmount.toInt() ? absAmount.toInt().toString() : absAmount.toString();
       _noteController.text = exp.note;
       _merchantController.text = exp.merchant;
-      _selectedCategory = exp.category;
+      _selectedCategory = exp.category.isNotEmpty ? exp.category : null;
       _selectedDate = exp.date;
       _selectedMethod = _methods.contains(exp.method.toLowerCase()) ? exp.method.toLowerCase() : 'upi';
       _isCredit = exp.amount < 0;
@@ -84,9 +83,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       }
       if (widget.prefilledIsCredit != null) {
         _isCredit = widget.prefilledIsCredit!;
-        if (_isCredit && widget.prefilledCategory == null) {
-          _selectedCategory = 'Other'; // Better default for income
-        }
       }
       // Auto-open numpad only in creation mode
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -127,17 +123,17 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       // EDIT MODE
       final updatedExpense = oldExpense.copyWith(
         amount: savedAmount,
-        category: _selectedCategory,
+        category: _selectedCategory ?? '',
         note: _noteController.text.trim(),
         date: _selectedDate,
         method: _selectedMethod,
         merchant: cleanMerchant,
       );
 
-      final categoryChanged = oldExpense.category != _selectedCategory;
+      final categoryChanged = oldExpense.category != (_selectedCategory ?? '');
       bool applyToAll = false;
 
-      if (categoryChanged && cleanMerchant.isNotEmpty) {
+      if (categoryChanged && cleanMerchant.isNotEmpty && _selectedCategory != null) {
         // Show dialog asking to apply categorization rule to all matching transactions
         applyToAll = await showDialog<bool>(
               context: context,
@@ -168,12 +164,12 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
       // Perform database mutations
       if (applyToAll) {
-        await expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory);
+        await expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory ?? '');
       }
       
       // Save auto-categorizer rule for future captures
       if (categoryChanged && cleanMerchant.isNotEmpty) {
-        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory);
+        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
       }
 
       await expenseNotifier.updateExpense(updatedExpense);
@@ -200,7 +196,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       final expense = Expense(
         id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
         amount: savedAmount,
-        category: _selectedCategory,
+        category: _selectedCategory ?? '',
         note: _noteController.text.trim(),
         date: _selectedDate,
         method: _selectedMethod,
@@ -210,7 +206,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
       // Save a category rule for this merchant on manual creation too if entered!
       if (cleanMerchant.isNotEmpty) {
-        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory);
+        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
       }
 
       await expenseNotifier.addExpense(expense);
@@ -220,7 +216,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '₹${NumberFormat('#,##,###').format(amount)} ${_isCredit ? "received" : "spent"} added to $_selectedCategory',
+              '₹${NumberFormat('#,##,###').format(amount)} ${_isCredit ? "received" : "spent"} added${_selectedCategory != null ? " to $_selectedCategory" : ""}',
             ),
             backgroundColor: AppColors.primaryNavy,
             behavior: SnackBarBehavior.floating,
@@ -254,6 +250,94 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       ),
     );
     if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  void _openCategoryPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: AppColors.cardSurface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: AppSpacing.md),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Select Category', style: AppTextStyles.h2),
+              const SizedBox(height: AppSpacing.sm),
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.1,
+                  ),
+                  itemCount: ExpenseCategories.all.length,
+                  itemBuilder: (gridCtx, index) {
+                    final cat = ExpenseCategories.all[index];
+                    final isSelected = _selectedCategory == cat.name;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedCategory = cat.name);
+                        Navigator.pop(ctx);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primaryNavy.withOpacity(0.08) : AppColors.inputFill,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primaryNavy : AppColors.borderLight,
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(cat.emoji, style: const TextStyle(fontSize: 26)),
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                cat.name,
+                                textAlign: TextAlign.center,
+                                style: AppTextStyles.caption.copyWith(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? AppColors.primaryNavy : AppColors.primaryNavy.withOpacity(0.8),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -366,27 +450,100 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
             ),
           ),
 
-          const SizedBox(height: AppSpacing.md),
-
-          // Category chips
-          Text('Category', style: AppTextStyles.label),
-          const SizedBox(height: AppSpacing.sm),
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: ExpenseCategories.all.length,
-              itemBuilder: (_, i) {
-                final cat = ExpenseCategories.all[i];
-                return CategoryChip(
-                  category: cat.name,
-                  isSelected: _selectedCategory == cat.name,
-                  onTap: () => setState(() => _selectedCategory = cat.name),
-                );
-              },
-            ),
+          // Category Selection (Optional)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Category (Optional)', style: AppTextStyles.label),
+              if (_selectedCategory != null)
+                GestureDetector(
+                  onTap: () => setState(() => _selectedCategory = null),
+                  child: Text(
+                    'Clear',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.expenseRed,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
-
+          const SizedBox(height: AppSpacing.sm),
+          _selectedCategory == null
+              ? Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: _openCategoryPicker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.inputFill,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.borderLight,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_circle_outline_rounded,
+                              size: 18, color: AppColors.mutedText),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Add Category',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: AppColors.mutedText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : () {
+                  final cat = ExpenseCategories.all.firstWhere(
+                    (c) => c.name == _selectedCategory,
+                    orElse: () => const ExpenseCategory(
+                      name: 'Uncategorized',
+                      icon: Icons.help_outline,
+                      emoji: '❓',
+                    ),
+                  );
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: _openCategoryPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryNavy.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.primaryNavy.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(cat.emoji, style: const TextStyle(fontSize: 18)),
+                            const SizedBox(width: 8),
+                            Text(
+                              cat.name,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.primaryNavy,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.edit_rounded,
+                                size: 14, color: AppColors.primaryNavy),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }(),
           const SizedBox(height: AppSpacing.md),
 
           // Merchant + Note row
