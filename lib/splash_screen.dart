@@ -6,6 +6,7 @@ import 'core/constants/app_colors.dart';
 import 'core/models/user_profile.dart';
 import 'core/providers/repository_providers.dart';
 import 'core/services/seed_service.dart';
+import 'core/sync/sync_engine.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 
 class AuthGate extends ConsumerWidget {
@@ -48,8 +49,7 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
   }
 
   Future<void> _setup() async {
-    // Force a token refresh so Firestore has valid credentials before any
-    // reads/writes — avoids a spurious permission-denied race on first launch.
+    // Force a token refresh so Auth API client has a valid token
     await widget.user.getIdToken();
 
     // Read repos via Riverpod — injected through repository_providers.dart.
@@ -66,6 +66,10 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
       photoUrl: widget.user.photoURL ?? '',
     ));
 
+    // Initialize Sync Engine
+    final syncClient = ref.read(syncApiClientProvider);
+    SyncEngine.init(syncClient);
+
     // Seed demo data once (no-op on subsequent launches).
     await SeedService(
       userRepo: userRepo,
@@ -73,6 +77,9 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
       loanRepo: loanRepo,
       investmentRepo: investmentRepo,
     ).seedIfNeeded();
+    
+    // Trigger initial pull/push sync in background
+    SyncEngine.instance.triggerSync();
 
     if (mounted) setState(() => _ready = true);
   }

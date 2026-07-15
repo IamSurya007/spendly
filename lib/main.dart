@@ -1,25 +1,18 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_text_styles.dart';
+import 'core/sync/isar_database.dart';
 import 'splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // ── Offline persistence ───────────────────────────────────────────────────
-  // Firestore caches all reads locally and queues writes when offline.
-  // On reconnect, queued writes are automatically flushed to the server.
-  // CACHE_SIZE_UNLIMITED keeps the full history — ideal for a finance app.
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
-  // ─────────────────────────────────────────────────────────────────────────
+  // Initialize offline-first Isar database
+  await IsarDatabase.init();
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(

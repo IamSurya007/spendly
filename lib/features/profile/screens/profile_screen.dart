@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../features/auth/data/repository/auth_repository_impl.dart';
+import '../../auth/presentation/screens/conflict_resolution_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final User user;
@@ -104,6 +105,20 @@ class ProfileScreen extends StatelessWidget {
                     label: 'Notifications',
                     sublabel: 'Budget alerts & reminders',
                     onTap: () {},
+                  ),
+                  const Divider(height: 1, color: AppColors.borderLight),
+                  _MenuItem(
+                    icon: Icons.sync_problem_rounded,
+                    label: 'Resolve Conflicts',
+                    sublabel: 'View and resolve sync conflicts',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ConflictResolutionScreen(),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1, color: AppColors.borderLight),
                   _MenuItem(

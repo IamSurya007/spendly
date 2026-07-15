@@ -4,34 +4,34 @@ import '../repositories/i_expense_repository.dart';
 import '../repositories/i_investment_repository.dart';
 import '../repositories/i_loan_repository.dart';
 import '../repositories/i_user_repository.dart';
-import '../../features/expenses/data/repositories/firestore_expense_repository.dart';
-import '../../features/investments/data/repositories/firestore_investment_repository.dart';
-import '../../features/loans/data/repositories/firestore_loan_repository.dart';
-import '../../features/auth/data/repositories/firestore_user_repository.dart';
+import '../repositories/isar_expense_repository.dart';
+import '../repositories/isar_loan_repository.dart';
+import '../repositories/isar_investment_repository.dart';
+import '../repositories/isar_user_repository.dart';
+import '../sync/sync_api_client.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE SINGLE FILE TO CHANGE WHEN SWAPPING THE DATA BACKEND.
 //
-// Current backend: Cloud Firestore (online-first, with native offline cache)
-//
-// To switch to Isar + Custom REST API (Phase 2+):
-//   1. Create IsarExpenseRepository, IsarLoanRepository, etc.
-//   2. Replace the RHS of each provider below with the new implementation.
-//   3. Zero changes needed in providers, screens, or notifiers.
+// Current backend: Isar Local DB (Offline-First) + REST Sync API
 // ─────────────────────────────────────────────────────────────────────────────
 
+final syncApiClientProvider = Provider<SyncApiClient>((ref) {
+  return SyncApiClient();
+});
+
 final expenseRepositoryProvider = Provider<IExpenseRepository>((ref) {
-  return FirestoreExpenseRepository();
+  return IsarExpenseRepository();
 });
 
 final loanRepositoryProvider = Provider<ILoanRepository>((ref) {
-  return FirestoreLoanRepository();
+  return IsarLoanRepository();
 });
 
 final investmentRepositoryProvider = Provider<IInvestmentRepository>((ref) {
-  return FirestoreInvestmentRepository();
+  return IsarInvestmentRepository();
 });
 
 final userRepositoryProvider = Provider<IUserRepository>((ref) {
-  return FirestoreUserRepository();
+  return IsarUserRepository(ref.watch(syncApiClientProvider));
 });
