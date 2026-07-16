@@ -54,12 +54,14 @@ class SmsParserService {
         kinds: [SmsQueryKind.inbox],
         count: limit,
       );
-
+      final uniqueSenders = messages.map((m) => m.address).toSet();
+      print(uniqueSenders);
       final List<ParsedSms> transactions = [];
       for (final msg in messages) {
         final body = msg.body;
         final date = msg.date;
-        if (body != null) {
+        final sender = msg.address ?? '';
+        if (body != null && _isLikelyTransactionalSender(sender)) {
           final parsed = parseSmsBody(body, date ?? DateTime.now());
           if (parsed != null) {
             transactions.add(parsed);
@@ -72,11 +74,10 @@ class SmsParserService {
     }
   }
 
-  /// Checks if MainActivity has a pending transaction from a notification tap.
   Future<ParsedSms?> getPendingTransaction() async {
     try {
       final Map<dynamic, dynamic>? pending =
-          await _channel.invokeMethod('getPendingTransaction');
+      await _channel.invokeMethod('getPendingTransaction');
       if (pending != null) {
         return _parsePlatformMap(pending);
       }
@@ -117,18 +118,85 @@ class SmsParserService {
     );
   }
 
-  /// The regex parsing logic for Indian Banking SMS messages (HDFC, ICICI, SBI, UPI, etc.)
+  static const _knownBankSenders = {
+    'HDFCBK', 'ICICIB', 'SBIINB', 'SBIPSG', 'AXISBK', 'KOTAKB',
+    'PAYTM', 'PYTM', 'GPAY', 'PHONPE', 'AMAZONP', 'YESBNK',
+    'CENTBK', 'PNBSMS', 'BOIIND', 'UNIONB', 'CANBNK', 'IDFCFB',
+  };
+
+  static bool _isLikelyTransactionalSender(String sender) {
+    final upper = sender.toUpperCase().trim();
+    if (upper.isEmpty) return true; // don't reject on missing sender data — let content filters decide
+
+    // Long plain phone numbers are never bank/DLT senders
+    if (RegExp(r'^\+?\d{7,}$').hasMatch(upper)) return false;
+
+    // DLT header pattern: XX-NAME-SUFFIX
+    final match = RegExp(r'^[A-Z]{2}-([A-Z0-9]+)-([A-Z])$').firstMatch(upper);
+    if (match != null) {
+      final suffix = match.group(2);
+      // T = Transactional, S = Service (explicit/implicit) — both can carry real transaction data
+      // P = Promotional, G = Government — exclude
+      return suffix == 'T' || suffix == 'S';
+    }
+
+    // Doesn't match the DLT pattern at all (e.g. bare shortcode) — pass through to content filters
+    return true;
+  }
   static ParsedSms? parseSmsBody(String body, DateTime smsTime) {
     final cleanBody = body.toLowerCase();
 
-    // Check for currency symbols / transaction keywords
-    if (!cleanBody.contains('rs') &&
-        !cleanBody.contains('inr') &&
-        !cleanBody.contains('rupee')) {
-      return null;
-    }
+    // 1. Hard exclude promotional/marketing/offer language first
+    const promoKeywords = [
+      'sale', 'offer', 'cashback offer', '% off', 'discount', 'free',
+      'win', 'buy now', 'shop now', 'voucher', 'coupon', 'deal',
+      'subscribe', 'download the app', 'click here', 't&c apply',
+      'limited period', 'extension', 'gift card', 'reward points expir',
+      'pre-approved', 'preapproved', 'pre approved', 'eligib',
+      'instant loan', 'apply now', 'interest rate', 'emi starts',
+      'emi at', 'loan offer', 'credit limit enhance', 'insurance',
+      'policy', 'invest now', 'mutual fund', 'trade now',
+      'install', 'http://', 'https://', 'bit.ly', 'unsubscribe',
+      'promo', 'flat ', 'starting at', 'hurry', 'last chance',
+      'exclusive offer', 'congratulations', 'you have won', 'claim now',
+    ];
+    if (promoKeywords.any((k) => cleanBody.contains(k))) return null;
 
-    // Extract amount: Matches "Rs. 150.00", "INR 500", "Rs 1,500.25", etc.
+    // 2. Require SPECIFIC transaction evidence — masked account/card or txn ref
+    final hasMaskedAccountOrCard = RegExp(
+      r'(?:a/c|acc(?:t|ount)?|card)\s*(?:no\.?|number)?\s*[x*]{2,}\d{2,}',
+      caseSensitive: false,
+    ).hasMatch(cleanBody);
+
+    final hasTxnRef = RegExp(
+      r'(?:ref|txn|transaction)\s*(?:no|id)?[:.]?\s*\w{4,}',
+      caseSensitive: false,
+    ).hasMatch(cleanBody);
+
+    final hasBalanceMention = cleanBody.contains('avl bal') ||
+        cleanBody.contains('available balance') ||
+        cleanBody.contains('bal:') ||
+        cleanBody.contains('upi');
+
+    final hasAccountEvidence =
+        hasMaskedAccountOrCard || hasTxnRef || hasBalanceMention;
+
+    final isDebit = cleanBody.contains('debited') ||
+        cleanBody.contains('sent') ||
+        cleanBody.contains('paid') ||
+        cleanBody.contains('spent') ||
+        cleanBody.contains('charged') ||
+        cleanBody.contains('withdrawn');
+
+    final isCredit = cleanBody.contains('credited') ||
+        cleanBody.contains('received') ||
+        cleanBody.contains('deposited') ||
+        cleanBody.contains('refunded');
+
+    // 3. Require explicit direction AND account evidence — no silent default
+    if (!isDebit && !isCredit) return null;
+    if (!hasAccountEvidence) return null;
+
     final amountRegex = RegExp(
       r'(?:rs\.?|inr|rupees?)\s*([0-9,]+\.?[0-9]*)',
       caseSensitive: false,
@@ -140,23 +208,9 @@ class SmsParserService {
     final amount = double.tryParse(amountStr);
     if (amount == null || amount <= 0) return null;
 
-    // Check transaction flow type
-    final isDebit = cleanBody.contains('debited') ||
-        cleanBody.contains('sent') ||
-        cleanBody.contains('paid') ||
-        cleanBody.contains('spent') ||
-        cleanBody.contains('charged') ||
-        cleanBody.contains('withdrawn') ||
-        cleanBody.contains('txn') ||
-        cleanBody.contains('transacted');
-
-    final isCredit = cleanBody.contains('credited') ||
-        cleanBody.contains('received') ||
-        cleanBody.contains('deposited') ||
-        cleanBody.contains('refunded');
-
     final debit = isDebit || !isCredit;
 
+    // ... merchant + account extraction unchanged below
     // Extract Merchant Name (words after "to", "at", "towards", or "info:")
     String merchant = 'Unknown Merchant';
     final toAtPatterns = [

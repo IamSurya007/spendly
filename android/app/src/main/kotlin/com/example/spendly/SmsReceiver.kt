@@ -32,7 +32,9 @@ class SmsReceiver : BroadcastReceiver() {
                             }
                             val sender = message.originatingAddress ?: ""
                             val body = message.messageBody ?: ""
-                            
+
+                            if (!isLikelyTransactionalSender(sender)) continue
+
                             val parsed = parseSms(body)
                             if (parsed != null) {
                                 showNotification(context, parsed, sender)
@@ -46,6 +48,31 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
+    // Known bank/UPI sender headers (without the region prefix, e.g. "HDFCBK" from "VM-HDFCBK")
+    private val knownBankSenders = setOf(
+        "HDFCBK", "ICICIB", "SBIINB", "SBIPSG", "AXISBK", "KOTAKB",
+        "PAYTM", "PYTM", "GPAY", "PHONPE", "AMAZONP", "YESBNK",
+        "CENTBK", "PNBSMS", "BOIIND", "UNIONB", "CANBNK", "IDFCFB"
+    )
+
+    // DLT-style header pattern: 2-letter telecom prefix + hyphen + 6-char alphanumeric code
+    private val dltHeaderPattern = Regex("^[A-Z]{2}-[A-Z0-9]{6}$")
+
+    private fun isLikelyTransactionalSender(sender: String): Boolean {
+        val upperSender = sender.uppercase(Locale.ROOT)
+
+        // Plain phone numbers (10+ digits) are never bank transactional senders
+        if (upperSender.matches(Regex("^\\+?\\d{7,}$"))) return false
+
+        // Check against known bank/UPI headers (match the code part, ignore prefix)
+        val codePart = upperSender.substringAfter("-", upperSender)
+        return (knownBankSenders.any { codePart.contains(it) })
+
+//        // Fallback: does it look like a DLT transactional header at all?
+//        // (still passes through to content filters — this is permissive, not authoritative)
+//        return dltHeaderPattern.matches(upperSender) || upperSender.length in 6..8
+    }
+
     private class ParsedTxn(
         val amount: Double,
         val merchant: String,
@@ -56,43 +83,83 @@ class SmsReceiver : BroadcastReceiver() {
 
     private fun parseSms(body: String): ParsedTxn? {
         val cleanBody = body.lowercase(Locale.ROOT)
-        
-        // Quick filter for bank transactions
-        if (!cleanBody.contains("rs") && !cleanBody.contains("inr") && !cleanBody.contains("rupee")) {
-            return null
-        }
+
+        // 1. Hard exclude promotional/marketing/offer language first
+        val promoKeywords = arrayOf(
+            "sale", "offer", "cashback offer", "% off", "discount", "free",
+            "win", "buy now", "shop now", "voucher", "coupon", "deal",
+            "subscribe", "download the app", "click here", "t&c apply",
+            "limited period", "extension", "gift card", "reward points expir",
+            "pre-approved", "preapproved", "pre approved", "eligib",
+            "instant loan", "apply now", "interest rate", "emi starts",
+            "emi at", "loan offer", "credit limit enhance", "insurance",
+            "policy", "invest now", "mutual fund", "trade now",
+            "install", "http://", "https://", "bit.ly", "unsubscribe",
+            "promo", "flat ", "starting at", "hurry", "last chance",
+            "exclusive offer", "congratulations", "you have won", "claim now"
+        )
+        if (promoKeywords.any { cleanBody.contains(it) }) return null
+
+        // 2. Require SPECIFIC transaction evidence — a masked account/card number
+        //    or a real reference/txn id — not just the bare word "account"/"card"
+        val hasMaskedAccountOrCard = Regex(
+            "(?:a/c|acc(?:t|ount)?|card)\\s*(?:no\\.?|number)?\\s*[x*]{2,}\\d{2,}",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(cleanBody)
+
+        val hasTxnRef = Regex(
+            "(?:ref|txn|transaction)\\s*(?:no|id)?[:.]?\\s*\\w{4,}",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(cleanBody)
+
+        val hasBalanceMention = cleanBody.contains("avl bal") ||
+                cleanBody.contains("available balance") ||
+                cleanBody.contains("bal:") ||
+                cleanBody.contains("upi")
+
+        val hasAccountEvidence = hasMaskedAccountOrCard || hasTxnRef || hasBalanceMention
+
+        val isDebit = cleanBody.contains("debited") ||
+                cleanBody.contains("sent") ||
+                cleanBody.contains("paid") ||
+                cleanBody.contains("spent") ||
+                cleanBody.contains("charged") ||
+                cleanBody.contains("withdrawn")
+
+        val isCredit = cleanBody.contains("credited") ||
+                cleanBody.contains("received") ||
+                cleanBody.contains("deposited") ||
+                cleanBody.contains("refunded")
+
+        if (!isDebit && !isCredit) return null
+        if (!hasAccountEvidence) return null
 
         // Amount parsing regex: Matches Rs. 100, Rs. 1,000, INR 500, etc.
-        val amountPattern = Pattern.compile("(?:rs\\.?|inr|rupees?)\\s*([0-9,]+\\.?[0-9]*)", Pattern.CASE_INSENSITIVE)
+        val amountPattern = Pattern.compile(
+            "(?:rs\\.?|inr|rupees?)\\s*([0-9,]+\\.?[0-9]*)",
+            Pattern.CASE_INSENSITIVE
+        )
         val amountMatcher = amountPattern.matcher(body)
         if (!amountMatcher.find()) return null
-        
+
         val amountStr = amountMatcher.group(1)?.replace(",", "") ?: return null
         val amount = amountStr.toDoubleOrNull() ?: return null
         if (amount <= 0) return null
 
-        // Check if debit or credit
-        val isDebit = cleanBody.contains("debited") || 
-                      cleanBody.contains("sent") || 
-                      cleanBody.contains("paid") || 
-                      cleanBody.contains("spent") || 
-                      cleanBody.contains("charged") || 
-                      cleanBody.contains("withdrawn") ||
-                      cleanBody.contains("txn")
-
-        val isCredit = cleanBody.contains("credited") || 
-                       cleanBody.contains("received") || 
-                       cleanBody.contains("deposited") || 
-                       cleanBody.contains("refunded")
-
-        // If not credit, assume debit (most common)
         val debit = isDebit || !isCredit
+
 
         // Extract merchant name
         var merchant = "Unknown Merchant"
         val merchantPatterns = arrayOf(
-            Pattern.compile("(?:to|at|towards)\\s+([a-zA-Z0-9\\s\\.\\-\\*]+?)(?:\\s+on|\\s+ref|\\s+via|\\s+from|\\s+balance|\\.|\\n|$)", Pattern.CASE_INSENSITIVE),
-            Pattern.compile("(?:info:?|vpa:?)\\s*([a-zA-Z0-9\\s\\.\\-\\*@]+?)(?:\\s+on|\\s+ref|\\.|\\n|$)", Pattern.CASE_INSENSITIVE)
+            Pattern.compile(
+                "(?:to|at|towards)\\s+([a-zA-Z0-9\\s\\.\\-\\*]+?)(?:\\s+on|\\s+ref|\\s+via|\\s+from|\\s+balance|\\.|\\n|$)",
+                Pattern.CASE_INSENSITIVE
+            ),
+            Pattern.compile(
+                "(?:info:?|vpa:?)\\s*([a-zA-Z0-9\\s\\.\\-\\*@]+?)(?:\\s+on|\\s+ref|\\.|\\n|$)",
+                Pattern.CASE_INSENSITIVE
+            )
         )
 
         for (pattern in merchantPatterns) {
@@ -117,7 +184,7 @@ class SmsReceiver : BroadcastReceiver() {
         if (cleaned.contains("@")) {
             cleaned = cleaned.split("@")[0]
         }
-        
+
         // Capitalize words
         val words = cleaned.split(" ")
         val capitalized = StringBuilder()
@@ -175,7 +242,13 @@ class SmsReceiver : BroadcastReceiver() {
         )
 
         val direction = if (txn.isDebit) "debited" else "credited"
-        val message = String.format(Locale.ROOT, "₹%.2f %s at %s. Tap to confirm.", txn.amount, direction, txn.merchant)
+        val message = String.format(
+            Locale.ROOT,
+            "₹%.2f %s at %s. Tap to confirm.",
+            txn.amount,
+            direction,
+            txn.merchant
+        )
 
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_menu_my_calendar) // Simple native calendar icon as fallback

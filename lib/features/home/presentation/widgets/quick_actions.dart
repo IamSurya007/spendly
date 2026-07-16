@@ -9,6 +9,7 @@ class QuickActions extends StatelessWidget {
   final VoidCallback onAddLoan;
   final VoidCallback onAddInvestment;
   final VoidCallback onScanSms;
+  final VoidCallback onExport;
 
   const QuickActions({
     super.key,
@@ -16,6 +17,7 @@ class QuickActions extends StatelessWidget {
     required this.onAddLoan,
     required this.onAddInvestment,
     required this.onScanSms,
+    required this.onExport,
   });
 
   @override
@@ -48,9 +50,7 @@ class QuickActions extends StatelessWidget {
           _ActionChip(
             icon: '📤',
             label: 'Export',
-            onTap: () {
-              // TODO: Sheets export — Week 7
-            },
+            onTap: onExport,
           ),
         ],
       ),

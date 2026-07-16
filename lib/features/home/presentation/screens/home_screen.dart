@@ -10,6 +10,9 @@ import '../../../expenses/screens/sms_scan_sheet.dart';
 import '../../../loans/screens/add_loan_sheet.dart';
 import '../../../investments/screens/add_investment_sheet.dart';
 import '../../../expenses/services/expense_providers.dart';
+import '../../../loans/services/loan_providers.dart';
+import '../../../investments/services/investment_providers.dart';
+import '../../../../core/services/excel_export_service.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/quick_actions.dart';
 
@@ -33,6 +36,36 @@ class HomeScreen extends ConsumerWidget {
   String _firstName() {
     final name = user.displayName ?? '';
     return name.split(' ').first;
+  }
+
+  Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Generating Excel report...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final expenses = ref.read(expensesStreamProvider).valueOrNull ?? [];
+      final loans = ref.read(loansStreamProvider).valueOrNull ?? [];
+      final investments = ref.read(investmentsStreamProvider).valueOrNull ?? [];
+
+      await ExcelExportService.exportDataToExcel(
+        expenses: expenses,
+        loans: loans,
+        investments: investments,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: ${e.toString()}'),
+            backgroundColor: AppColors.expenseRed,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -130,6 +163,7 @@ class HomeScreen extends ConsumerWidget {
                   backgroundColor: Colors.transparent,
                   builder: (_) => const AddInvestmentSheet(),
                 ),
+                onExport: () => _handleExport(context, ref),
               ),
             ),
   

@@ -21,7 +21,7 @@ class AppBottomNav extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
-            height: 60, // Thinner height (60) for reduced vertical padding
+            height: 52, // Thinner height (60) for reduced vertical padding
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
@@ -32,7 +32,7 @@ class AppBottomNav extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final slotWidth = constraints.maxWidth / 4; // 4 slots instead of 5
+                final slotWidth = constraints.maxWidth / 4;
                 final pillLeft = currentIndex * slotWidth + 6;
                 final pillWidth = slotWidth - 12;
 
@@ -46,7 +46,7 @@ class AppBottomNav extends StatelessWidget {
                       top: 6, // Adjusted for thinner height
                       child: Container(
                         width: pillWidth,
-                        height: 48, // Thinner height
+                        height: 40, // Thinner height
                         decoration: BoxDecoration(
                           color: const Color(0xF0F0F2F6),
                           borderRadius: BorderRadius.circular(18),
