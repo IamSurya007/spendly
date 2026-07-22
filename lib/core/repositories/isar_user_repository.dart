@@ -38,16 +38,16 @@ class IsarUserRepository implements IUserRepository {
       }
     });
 
-    // 2. Call backend /users/me API to register/update profile
-    try {
-      await _apiClient.dio.post('/users/me', data: {
-        'name': profile.name,
-        'email': profile.email,
-        'photoUrl': profile.photoUrl,
-      });
-    } catch (e) {
+    // 2. Call backend /users/me API to register/update profile (unawaited in background)
+    _apiClient.dio.post('/users/me', data: {
+      'name': profile.name,
+      'email': profile.email,
+      'photoUrl': profile.photoUrl,
+    }).then((_) {
+      print('IsarUserRepository: ensureUserProfile remote call succeeded');
+    }).catchError((e) {
       print('IsarUserRepository: ensureUserProfile remote call failed: $e');
-    }
+    });
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
@@ -23,6 +24,7 @@ class SyncEngine {
   static SyncEngine? _instance;
   final SyncApiClient _apiClient;
   bool _isSyncing = false;
+  Timer? _debounceTimer;
 
   SyncEngine._(this._apiClient);
 
@@ -45,12 +47,27 @@ class SyncEngine {
       // Check if there is any active non-none connection
       final hasConnection = results.any((result) => result != ConnectivityResult.none);
       if (hasConnection) {
-        triggerSync();
+        triggerSync(immediate: true);
       }
     });
   }
 
-  Future<void> triggerSync() async {
+  void triggerSync({bool immediate = false}) {
+    if (immediate) {
+      _debounceTimer?.cancel();
+      _executeSync();
+      return;
+    }
+
+    // Debounce triggers by 3 seconds to batch rapid local database mutations (e.g. bulk SMS imports)
+    // and minimize redundant serverless invocations.
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(seconds: 3), () {
+      _executeSync();
+    });
+  }
+
+  Future<void> _executeSync() async {
     if (_isSyncing) return;
     _isSyncing = true;
     try {
@@ -62,7 +79,7 @@ class SyncEngine {
     }
   }
 
-  Future<void> runSyncCycle() async {
+  Future<void> runSyncCycle({bool forcePull = false}) async {
     bool hasPendingWork = true;
     int maxCycles = 5;
     int cycles = 0;
@@ -70,7 +87,7 @@ class SyncEngine {
     while (hasPendingWork && cycles < maxCycles) {
       cycles++;
       final pushedCount = await pushPendingOutbox();
-      final pulledCount = await pullAllEntities();
+      final pulledCount = await pullAllEntities(force: forcePull);
       hasPendingWork = pushedCount > 0 || pulledCount > 0;
     }
   }
@@ -181,13 +198,28 @@ class SyncEngine {
 
             final status = result['status'] as String? ?? 'rejected';
             if (status == 'applied') {
+              final serverId = result['serverId'] as String?;
+              final serverVersion = result['serverVersion'] as int?;
+              final serverUpdatedAtStr = result['serverUpdatedAt'] as String?;
+
+              if (serverId == null || serverVersion == null || serverUpdatedAtStr == null) {
+                print('SyncEngine Warning: server response for clientId=${op.clientId} applied but missing server info. '
+                    'serverId=$serverId, version=$serverVersion, updatedAt=$serverUpdatedAtStr');
+                op.outboxStatus = OutboxStatus.failed.name;
+                op.attemptCount++;
+                op.lastAttemptAt = DateTime.now().toUtc();
+                op.nextRetryAt = _calculateNextRetryAt(op.attemptCount);
+                isar.outboxOperations.put(op);
+                continue;
+              }
+
               // Apply server versioning to local record
               _updateLocalMetadata(
                 entityType,
                 op.clientId,
-                serverId: result['serverId'] as String,
-                serverVersion: result['serverVersion'] as int,
-                serverUpdatedAt: DateTime.parse(result['serverUpdatedAt'] as String),
+                serverId: serverId,
+                serverVersion: serverVersion,
+                serverUpdatedAt: DateTime.parse(serverUpdatedAtStr),
               );
 
               // Delete outbox operation upon success
@@ -224,21 +256,30 @@ class SyncEngine {
   }
 
   // Pull all entities from server
-  Future<int> pullAllEntities() async {
+  Future<int> pullAllEntities({bool force = false}) async {
     final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule'];
     int totalPulled = 0;
     for (final entity in entities) {
-      totalPulled += await pullEntity(entity);
+      totalPulled += await pullEntity(entity, force: force);
     }
     return totalPulled;
   }
 
-  Future<int> pullEntity(String entityType) async {
+  Future<int> pullEntity(String entityType, {bool force = false}) async {
     final isar = IsarDatabase.instance.isar;
     final existingState = await isar.syncStates.where().entityTypeEqualTo(entityType).findFirst();
     final state = existingState ?? (SyncState()
       ..id = isar.syncStates.autoIncrement()
       ..entityType = entityType);
+
+    // Throttling: If we pulled this entity recently (e.g. within the last 30 seconds),
+    // skip pulling it to conserve serverless execution instances, unless force is true.
+    if (!force && state.lastPulledAt != null) {
+      final elapsed = DateTime.now().toUtc().difference(state.lastPulledAt!);
+      if (elapsed.inSeconds < 30) {
+        return 0; 
+      }
+    }
 
     try {
       final pullResult = await _apiClient.pull(entityType, state.lastPulledCursor);
@@ -246,7 +287,14 @@ class SyncEngine {
       final tombstones = List<String>.from(pullResult['tombstones'] ?? []);
       final nextCursor = pullResult['nextCursor'] as String?;
 
-      if (records.isEmpty && tombstones.isEmpty) return 0;
+      if (records.isEmpty && tombstones.isEmpty) {
+        // Save lastPulledAt even if response is empty to ensure throttling is applied
+        isar.write((isar) {
+          state.lastPulledAt = DateTime.now().toUtc();
+          isar.syncStates.put(state);
+        });
+        return 0;
+      }
 
       isar.write((isar) {
         // 1. Process deletions
@@ -330,11 +378,19 @@ class SyncEngine {
 
   void _applyServerRecord(String entityType, Map<String, dynamic> remote) {
     final isar = IsarDatabase.instance.isar;
-    final clientId = remote['clientId'] as String;
-    final serverId = remote['id'] as String;
+    final clientId = remote['clientId'] as String?;
+    final serverId = remote['id'] as String?;
     final remoteVersion = remote['version'] as int? ?? 1;
-    final remoteUpdatedAt = DateTime.parse(remote['updatedAt'] as String);
+    final remoteUpdatedAtStr = remote['updatedAt'] as String?;
     final remoteIsDeleted = remote['isDeleted'] as bool? ?? false;
+
+    if (clientId == null || serverId == null || remoteUpdatedAtStr == null) {
+      print('SyncEngine Warning: skipping invalid remote record for $entityType: '
+          'id=$serverId, clientId=$clientId, updatedAt=$remoteUpdatedAtStr');
+      return;
+    }
+
+    final remoteUpdatedAt = DateTime.parse(remoteUpdatedAtStr);
     final remotePayload = Map<String, dynamic>.from(remote['payload'] ?? remote);
 
     if (entityType == 'expense') {

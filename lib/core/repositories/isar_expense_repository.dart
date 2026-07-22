@@ -29,6 +29,14 @@ class IsarExpenseRepository implements IExpenseRepository {
   @override
   Future<void> addExpense(Expense expense) async {
     await _isar.writeAsync((isar) {
+      final existing = isar.expenseCollections
+          .where()
+          .clientIdEqualTo(expense.id)
+          .findFirst();
+      if (existing != null) {
+        return;
+      }
+
       final newId = isar.expenseCollections.autoIncrement();
       final col = ExpenseCollection.fromDomain(
         expense,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -47,11 +48,29 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
     }
 
     final parsedList = await _smsService.scanInbox(limit: 100);
+    
+    // Filter out already imported transactions
+    final existingExpenses = ref.read(expensesStreamProvider).valueOrNull ?? [];
+    final existingIds = existingExpenses.map((e) => e.id).toSet();
+    
+    final List<ParsedSms> uniqueParsedList = [];
+    final uuid = const Uuid();
+    
+    for (final txn in parsedList) {
+      final txnId = uuid.v5(
+        Uuid.NAMESPACE_URL,
+        'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+      );
+      if (!existingIds.contains(txnId)) {
+        uniqueParsedList.add(txn);
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _detectedTransactions = parsedList;
+        _detectedTransactions = uniqueParsedList;
         // Select all by default
-        _selectedIndices = Set.from(List.generate(parsedList.length, (i) => i));
+        _selectedIndices = Set.from(List.generate(uniqueParsedList.length, (i) => i));
         _isLoading = false;
       });
     }
@@ -105,8 +124,13 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
         }
       }
 
+      final txnId = const Uuid().v5(
+        Uuid.NAMESPACE_URL,
+        'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+      );
+
       final expense = Expense(
-        id: 'exp_sms_${txn.date.millisecondsSinceEpoch}_$index',
+        id: txnId,
         amount: txn.isDebit ? txn.amount : -txn.amount,
         category: guessedCategory,
         note: 'Imported from SMS: "${txn.body.length > 30 ? '${txn.body.substring(0, 30)}...' : txn.body}"',

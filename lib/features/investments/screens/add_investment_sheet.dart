@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -133,7 +134,7 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
     } else {
       // ADD MODE
       final investment = Investment(
-        id: 'inv_${DateTime.now().millisecondsSinceEpoch}',
+        id: const Uuid().v4(),
         type: _type,
         name: name,
         monthlyAmount: monthly,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -194,7 +195,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     } else {
       // ADD MODE
       final expense = Expense(
-        id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
+        id: const Uuid().v4(),
         amount: savedAmount,
         category: _selectedCategory ?? '',
         note: _noteController.text.trim(),

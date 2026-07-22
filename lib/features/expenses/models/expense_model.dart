@@ -31,8 +31,8 @@ class Expense {
       category: json['category'] as String? ?? 'Other',
       note: json['note'] as String? ?? '',
       date: (json['date'] as Timestamp).toDate(),
-      method: json['method'] as String? ?? 'upi',
-      source: json['source'] as String? ?? 'manual',
+      method: (json['method'] as String? ?? 'upi').toLowerCase(),
+      source: (json['source'] as String? ?? 'manual').toLowerCase(),
       merchant: json['merchant'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
     );

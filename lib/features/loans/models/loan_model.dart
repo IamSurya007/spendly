@@ -28,7 +28,7 @@ class Loan {
   factory Loan.fromJson(Map<String, dynamic> json, String docId) {
     return Loan(
       id: docId,
-      type: json['type'] as String? ?? 'given',
+      type: (json['type'] as String? ?? 'given').toLowerCase(),
       name: json['name'] as String? ?? '',
       principal: (json['principal'] as num).toDouble(),
       total: (json['total'] as num).toDouble(),
@@ -36,7 +36,7 @@ class Loan {
       repaymentDate: json['repaymentDate'] != null
           ? (json['repaymentDate'] as Timestamp).toDate()
           : null,
-      status: json['status'] as String? ?? 'active',
+      status: (json['status'] as String? ?? 'active').toLowerCase(),
       notes: json['notes'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
     );

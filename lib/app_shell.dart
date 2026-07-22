@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import 'core/widgets/app_bottom_nav.dart';
 import 'core/constants/app_colors.dart';
 import 'core/providers/repository_providers.dart';
@@ -95,8 +96,13 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final savedAmount = txn.isDebit ? txn.amount : -txn.amount;
 
+    final txnId = const Uuid().v5(
+      Uuid.NAMESPACE_URL,
+      'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+    );
+
     final expense = Expense(
-      id: 'exp_sms_${txn.date.millisecondsSinceEpoch}',
+      id: txnId,
       amount: savedAmount,
       category: category,
       note: 'Auto-captured from SMS',

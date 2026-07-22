@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -124,7 +125,7 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
     } else {
       // ADD MODE
       final loan = Loan(
-        id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
+        id: const Uuid().v4(),
         type: _type,
         name: name,
         principal: principal,

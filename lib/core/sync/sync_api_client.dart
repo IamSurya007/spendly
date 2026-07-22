@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -8,8 +9,8 @@ class SyncApiClient {
       : _dio = dio ?? Dio(
           BaseOptions(
             baseUrl: baseUrl,
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 15),
+            connectTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
             contentType: Headers.jsonContentType,
           ),
         ) {
@@ -25,7 +26,55 @@ class SyncApiClient {
             // FirebaseAuth might fail or not be configured in testing
             print('SyncApiClient Interceptor error: $e');
           }
+
+          // Generate and log the exact curl command line by line to prevent Logcat truncation
+          try {
+            final fullPath = options.path.startsWith('http') 
+                ? options.path 
+                : '${options.baseUrl}${options.path}';
+            
+            final List<String> curlLines = [];
+            curlLines.add('curl -X ${options.method} "$fullPath"');
+            
+            options.headers.forEach((key, value) {
+              curlLines.add('  -H "$key: $value"');
+            });
+            
+            if (options.data != null) {
+              final bodyStr = jsonEncode(options.data);
+              curlLines.add("  -d '$bodyStr'");
+            }
+
+            print('\n--- SyncApiClient REQUEST ---');
+            print('URL: ${options.method} $fullPath');
+            print('CURL:');
+            for (int i = 0; i < curlLines.length; i++) {
+              final isLast = i == curlLines.length - 1;
+              print('${curlLines[i]}${isLast ? "" : " \\"}');
+            }
+            print('-----------------------------\n');
+          } catch (e) {
+            print('SyncApiClient print request log error: $e');
+          }
+
           return handler.next(options);
+        },
+        onResponse: (response, handler) {
+          print('\n--- SyncApiClient RESPONSE ---');
+          print('Status: ${response.statusCode}');
+          print('Path: ${response.requestOptions.path}');
+          print('Data: ${response.data}');
+          print('------------------------------\n');
+          return handler.next(response);
+        },
+        onError: (e, handler) {
+          print('\n--- SyncApiClient ERROR ---');
+          print('Path: ${e.requestOptions.path}');
+          print('Status: ${e.response?.statusCode}');
+          print('Message: ${e.message}');
+          print('Response Data: ${e.response?.data}');
+          print('---------------------------\n');
+          return handler.next(e);
         },
       ),
     );
