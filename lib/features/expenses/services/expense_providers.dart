@@ -22,20 +22,16 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   final IExpenseRepository _repo;
 
   Future<void> addExpense(Expense expense) async {
-    state = const AsyncValue.loading();
     try {
       await _repo.addExpense(expense);
-      state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> updateExpense(Expense expense) async {
-    state = const AsyncValue.loading();
     try {
       await _repo.updateExpense(expense);
-      state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -85,13 +81,13 @@ final expenseNotifierProvider =
   return ExpenseNotifier(ref.watch(expenseRepositoryProvider));
 });
 
-/// Computed: total income (credit) for the current month.
+/// Computed: total income (credit) for the current month (excludes isCountedAsSpend=false).
 final monthlyIncomeProvider = Provider<double>((ref) {
   final expenses = ref.watch(expensesStreamProvider).valueOrNull ?? [];
   final now = DateTime.now();
   return expenses
       .where((e) => e.date.year == now.year && e.date.month == now.month)
-      .where((e) => e.amount < 0) // negative = credit/income
+      .where((e) => e.amount < 0 && e.isCountedAsSpend) // negative = credit/income
       .fold(0.0, (sum, e) => sum + e.amount.abs());
 });
 

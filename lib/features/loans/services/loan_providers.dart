@@ -26,20 +26,16 @@ class LoanNotifier extends StateNotifier<AsyncValue<void>> {
   final ILoanRepository _repo;
 
   Future<void> addLoan(Loan loan) async {
-    state = const AsyncValue.loading();
     try {
       await _repo.addLoan(loan);
-      state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> updateLoan(Loan loan) async {
-    state = const AsyncValue.loading();
     try {
       await _repo.updateLoan(loan);
-      state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

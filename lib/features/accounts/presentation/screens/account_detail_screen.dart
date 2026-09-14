@@ -255,6 +255,8 @@ class AccountDetailScreen extends ConsumerWidget {
 
             // Filtered Transactions List
             allExpensesAsync.when(
+              skipLoadingOnRefresh: true,
+              skipLoadingOnReload: true,
               data: (expenses) {
                 final accountExpenses = expenses
                     .where((e) => e.accountId == liveAccount.id)

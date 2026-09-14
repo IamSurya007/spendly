@@ -50,6 +50,8 @@ class AccountsCarousel extends ConsumerWidget {
         SizedBox(
           height: 120,
           child: accountsAsync.when(
+            skipLoadingOnRefresh: true,
+            skipLoadingOnReload: true,
             data: (accounts) {
               return ListView.builder(
                 scrollDirection: Axis.horizontal,

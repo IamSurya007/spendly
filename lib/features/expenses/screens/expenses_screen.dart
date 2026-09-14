@@ -672,6 +672,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
             // ── Tab content ───────────────────────────────────────────────
             Expanded(
               child: expensesAsync.when(
+                skipLoadingOnRefresh: true,
+                skipLoadingOnReload: true,
                 data: (allExpenses) {
                   final monthExpenses = allExpenses
                       .where((e) =>
@@ -686,6 +688,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                     children: [
                       // Overview tab
                       budgetAsync.when(
+                        skipLoadingOnRefresh: true,
+                        skipLoadingOnReload: true,
                         data: (budget) =>
                             _buildOverviewTab(monthExpenses, budget),
                         loading: () => const Center(

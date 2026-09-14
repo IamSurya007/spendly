@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../models/investment_model.dart';
 import '../services/investment_providers.dart';
 import 'add_investment_sheet.dart';
@@ -20,6 +21,8 @@ class InvestmentsScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: investmentsAsync.when(
+          skipLoadingOnRefresh: true,
+          skipLoadingOnReload: true,
           data: (investments) {
             final totalPrincipal =
                 investments.fold(0.0, (s, i) => s + i.principal);
@@ -206,13 +209,46 @@ class InvestmentsScreen extends ConsumerWidget {
   }
 }
 
-class InvestmentCard extends StatelessWidget {
+/// UI RESEARCH NOTE: Recurring Deposit & Investment Tracking Pattern
+/// ------------------------------------------------------------------
+/// Modern wealth apps (Fold Money, Axio) structure concurrent investment lists to scale
+/// across multiple active RDs (RD1, RD2, RD3) without clutter:
+/// 1. Institution Avatar & Type Pill: Quick visual identification (e.g. HDFC Bank · RD).
+/// 2. 3-Column Metric Matrix: Monthly contribution, Principal invested to-date, Maturity target.
+/// 3. Visual Yield Badge: Expected returns (e.g. +₹12,400 / 8.2% returns).
+/// 4. Dynamic Tenure Progress: Completed tenure percentage bar + days/months to maturity footer.
+/// 5. Explicit Actions: Non-intrusive delete action via confirm modal to prevent accidental loss.
+class InvestmentCard extends ConsumerStatefulWidget {
   final Investment investment;
 
   const InvestmentCard({super.key, required this.investment});
 
   @override
+  ConsumerState<InvestmentCard> createState() => _InvestmentCardState();
+}
+
+class _InvestmentCardState extends ConsumerState<InvestmentCard> {
+  bool _isExpanded = false;
+
+  Future<void> _handleDelete() async {
+    final confirmed = await ConfirmDeleteDialog.show(
+      context,
+      title: 'Delete Investment',
+      content:
+          'Are you sure you want to delete "${widget.investment.name}"? This action cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed) {
+      ref
+          .read(investmentNotifierProvider.notifier)
+          .deleteInvestment(widget.investment.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final investment = widget.investment;
     final fmt = NumberFormat('#,##,###');
     final daysLeft = investment.daysToMaturity;
     final progress = investment.progressFraction;
@@ -224,10 +260,10 @@ class InvestmentCard extends StatelessWidget {
     if (daysLeft == 0) {
       daysLabel = 'Matured today! 🎉';
     } else if (daysLeft <= 30) {
-      daysLabel = '$daysLeft days to maturity';
+      daysLabel = '$daysLeft days left';
     } else {
       final months = (daysLeft / 30).floor();
-      daysLabel = '$months months to maturity';
+      daysLabel = '$months months left';
     }
 
     return Container(
@@ -237,132 +273,279 @@ class InvestmentCard extends StatelessWidget {
         AppSpacing.screenPadding,
         AppSpacing.sm,
       ),
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryNavy.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top row: name + type badge
-          Row(
+      child: InkWell(
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(investment.name, style: AppTextStyles.h3),
-                    if (investment.institution.isNotEmpty)
-                      Text(investment.institution,
-                          style: AppTextStyles.caption),
-                  ],
-                ),
+              // ── Collapsed Header (~50px) ──
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.incomeGreen.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        investment.name.isNotEmpty
+                            ? investment.name[0].toUpperCase()
+                            : 'I',
+                        style: AppTextStyles.h3.copyWith(
+                          color: AppColors.incomeGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Name + Institution
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          investment.name,
+                          style: AppTextStyles.h3.copyWith(fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              investment.institution.isNotEmpty
+                                  ? investment.institution
+                                  : 'Investment',
+                              style: AppTextStyles.caption.copyWith(fontSize: 11),
+                            ),
+                            Text(' · ', style: AppTextStyles.caption),
+                            Text(
+                              daysLabel,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.incomeGreen,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Maturity Target + Type Pill + Chevron
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${fmt.format(investment.maturityAmount)}',
+                            style: AppTextStyles.h3.copyWith(
+                              fontSize: 14,
+                              color: AppColors.incomeGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.statusActiveBackground,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              investment.type.toUpperCase(),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.incomeGreen,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppColors.mutedText,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.statusActiveBackground,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  investment.type,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.incomeGreen,
-                    fontWeight: FontWeight.w700,
+
+              // ── Expanded Details (On Tap) ──
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(height: 1, color: AppColors.borderLight),
+                      const SizedBox(height: 10),
+
+                      // 3-Column Stats Matrix
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _InvStat(
+                              label: 'Monthly',
+                              value: '₹${fmt.format(investment.monthlyAmount)}',
+                            ),
+                          ),
+                          Expanded(
+                            child: _InvStat(
+                              label: 'Principal',
+                              value: '₹${fmt.format(investment.principal)}',
+                            ),
+                          ),
+                          Expanded(
+                            child: _InvStat(
+                              label: 'At Maturity',
+                              value: '₹${fmt.format(investment.maturityAmount)}',
+                              valueColor: AppColors.incomeGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Yield badge & progress bar
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '+₹${fmt.format(gains)} (${gainPct.toStringAsFixed(1)}% yield)',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.incomeGreen,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Matures ${DateFormat('d MMM yyyy').format(investment.maturityDate)}',
+                            style: AppTextStyles.caption.copyWith(fontSize: 11),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          backgroundColor: AppColors.inputFill,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.incomeGreen),
+                          minHeight: 5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Action Buttons: Edit, Delete
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Delete action button
+                          GestureDetector(
+                            onTap: _handleDelete,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.expenseRed.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.delete_outline_rounded,
+                                      size: 13, color: AppColors.expenseRed),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Delete',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.expenseRed,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Edit button
+                          GestureDetector(
+                            onTap: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => AddInvestmentSheet(investment: investment),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.inputFill,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.edit_rounded,
+                                      size: 13, color: AppColors.primaryNavy),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Edit',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.primaryNavy,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+                crossFadeState: _isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Stats row
-          Row(
-            children: [
-              Expanded(
-                child: _InvStat(
-                    label: 'Monthly',
-                    value: '₹${fmt.format(investment.monthlyAmount)}'),
-              ),
-              Expanded(
-                child: _InvStat(
-                    label: 'Principal',
-                    value: '₹${fmt.format(investment.principal)}'),
-              ),
-              Expanded(
-                child: _InvStat(
-                  label: 'At Maturity',
-                  value: '₹${fmt.format(investment.maturityAmount)}',
-                  valueColor: AppColors.incomeGreen,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.sm),
-
-          // Gains
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.trending_up_rounded,
-                    size: 14, color: AppColors.incomeGreen),
-                const SizedBox(width: 4),
-                Text(
-                  'Gains: ₹${fmt.format(gains)} (${gainPct.toStringAsFixed(1)}%)',
-                  style: AppTextStyles.caption.copyWith(
-                      color: AppColors.incomeGreen,
-                      fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Maturity countdown + progress
-          Row(
-            children: [
-              const Icon(Icons.schedule_rounded,
-                  size: 13, color: AppColors.mutedText),
-              const SizedBox(width: 4),
-              Text(daysLabel, style: AppTextStyles.caption),
-              const Spacer(),
-              Text(
-                DateFormat('d MMM yyyy').format(investment.maturityDate),
-                style: AppTextStyles.caption,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppColors.inputFill,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.incomeGreen),
-              minHeight: 6,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

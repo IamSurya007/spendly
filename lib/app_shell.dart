@@ -70,17 +70,51 @@ class _AppShellState extends ConsumerState<AppShell>
     await _processPendingTransactions();
   }
 
+  static const int _batchToastThreshold = 3;
+
   Future<void> _processPendingTransactions() async {
     final pendingList = await _smsService.getPendingTransactions();
-    if (pendingList.isNotEmpty) {
+    if (pendingList.isEmpty) return;
+
+    if (pendingList.length >= _batchToastThreshold) {
+      // Save all transactions silently
       for (final txn in pendingList) {
-        await _autoSaveSmsTransaction(txn);
+        await _autoSaveSmsTransaction(txn, showToast: false);
+      }
+      await _smsService.clearPendingTransactions();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚡ ${pendingList.length} new transactions synced'),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } else {
+      for (final txn in pendingList) {
+        await _autoSaveSmsTransaction(txn, showToast: true);
       }
       await _smsService.clearPendingTransactions();
     }
   }
 
-  Future<void> _autoSaveSmsTransaction(ParsedSms txn) async {
+  Future<void> _autoSaveSmsTransaction(ParsedSms txn, {bool showToast = true}) async {
     final expenseRepo = ref.read(expenseRepositoryProvider);
     final ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
 
@@ -178,7 +212,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
     await ref.read(expenseNotifierProvider.notifier).addExpense(expense);
 
-    if (mounted) {
+    if (showToast && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -218,10 +252,14 @@ class _AppShellState extends ConsumerState<AppShell>
         children: [
           HomeScreen(
             user: widget.user,
-            onSeeAll: () => setState(() => _currentIndex = 1),
-            onProfileTap: () => setState(() => _currentIndex = 4),
+            onSeeAll: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+              );
+            },
+            onProfileTap: () => setState(() => _currentIndex = 3),
           ),
-          const ExpensesScreen(),
           const LoansScreen(),
           const InvestmentsScreen(),
           ProfileScreen(user: widget.user),

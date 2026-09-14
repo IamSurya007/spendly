@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/widgets/confirm_delete_dialog.dart';
 import '../models/loan_model.dart';
 import '../services/loan_providers.dart';
 import 'add_loan_sheet.dart';
@@ -206,26 +207,59 @@ class LoansScreen extends ConsumerWidget {
 }
 }
 
-class LoanCard extends ConsumerWidget {
+class LoanCard extends ConsumerStatefulWidget {
   final Loan loan;
 
   const LoanCard({super.key, required this.loan});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoanCard> createState() => _LoanCardState();
+}
+
+class _LoanCardState extends ConsumerState<LoanCard> {
+  bool _isExpanded = false;
+
+  Future<void> _handleTogglePaid() async {
+    final newStatus = widget.loan.status == 'paid' ? 'active' : 'paid';
+    final updatedLoan = widget.loan.copyWith(
+      status: newStatus,
+      total: widget.loan.currentTotal,
+    );
+    await ref.read(loanNotifierProvider.notifier).updateLoan(updatedLoan);
+  }
+
+  Future<void> _handleDelete() async {
+    final confirmed = await ConfirmDeleteDialog.show(
+      context,
+      title: 'Delete Loan',
+      content:
+          'Are you sure you want to delete "${widget.loan.name}"? This action cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+
+    if (confirmed) {
+      ref.read(loanNotifierProvider.notifier).deleteLoan(widget.loan.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loan = widget.loan;
     final fmt = NumberFormat('#,##,###');
     final isGiven = loan.type == 'given';
     final daysLeft = loan.daysRemaining;
+    final isPaid = loan.status == 'paid';
+    final isOverdue = loan.status == 'overdue' || loan.isOverdue;
 
     Color statusColor;
     Color statusBg;
     String statusLabel;
 
-    if (loan.status == 'paid') {
+    if (isPaid) {
       statusColor = AppColors.statusPaid;
       statusBg = AppColors.statusPaidBackground;
       statusLabel = 'Paid';
-    } else if (loan.status == 'overdue' || loan.isOverdue) {
+    } else if (isOverdue) {
       statusColor = AppColors.statusOverdue;
       statusBg = AppColors.statusOverdueBackground;
       statusLabel = 'Overdue';
@@ -242,148 +276,319 @@ class LoanCard extends ConsumerWidget {
         AppSpacing.screenPadding,
         AppSpacing.sm,
       ),
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
-        color: AppColors.cardSurface,
+        color: isPaid
+            ? AppColors.cardSurface.withOpacity(0.7)
+            : isOverdue
+                ? AppColors.statusOverdueBackground.withOpacity(0.3)
+                : AppColors.cardSurface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: AppColors.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryNavy.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: isOverdue
+              ? AppColors.expenseRed.withOpacity(0.4)
+              : AppColors.borderLight,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: InkWell(
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar initial
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isGiven
-                      ? AppColors.statusActiveBackground
-                      : const Color(0xFFFFEBEE),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    loan.name[0].toUpperCase(),
-                    style: AppTextStyles.h2.copyWith(
+              // ── Collapsed Header (~50px) ──
+              Row(
+                children: [
+                  // Initial Avatar chip
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
                       color: isGiven
-                          ? AppColors.incomeGreen
-                          : AppColors.expenseRed,
+                          ? AppColors.incomeGreen.withOpacity(0.12)
+                          : AppColors.expenseRed.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        loan.name.isNotEmpty ? loan.name[0].toUpperCase() : 'L',
+                        style: AppTextStyles.h3.copyWith(
+                          color: isGiven
+                              ? AppColors.incomeGreen
+                              : AppColors.expenseRed,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  // Name + Direction Subtitle
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          loan.name,
+                          style: AppTextStyles.h3.copyWith(
+                            fontSize: 14,
+                            decoration:
+                                isPaid ? TextDecoration.lineThrough : null,
+                            color: isPaid ? AppColors.mutedText : null,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              isGiven ? 'Owed to you' : 'You owe',
+                              style: AppTextStyles.caption.copyWith(
+                                color: isGiven
+                                    ? AppColors.incomeGreen
+                                    : AppColors.expenseRed,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                            if (loan.repaymentDate != null && !isPaid) ...[
+                              Text(' · ', style: AppTextStyles.caption),
+                              Text(
+                                isOverdue
+                                    ? 'Overdue (${daysLeft?.abs()}d)'
+                                    : 'Due ${DateFormat('d MMM').format(loan.repaymentDate!)}',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: isOverdue
+                                      ? AppColors.expenseRed
+                                      : AppColors.mutedText,
+                                  fontWeight:
+                                      isOverdue ? FontWeight.bold : null,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Amount + Status Pill + Chevron
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${fmt.format(loan.currentTotal)}',
+                            style: AppTextStyles.h3.copyWith(
+                              fontSize: 14,
+                              color: isGiven
+                                  ? AppColors.incomeGreen
+                                  : AppColors.expenseRed,
+                              decoration:
+                                  isPaid ? TextDecoration.lineThrough : null,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: AppTextStyles.caption.copyWith(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        _isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppColors.mutedText,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.sm + 4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(loan.name, style: AppTextStyles.h3),
-                    if (loan.notes.isNotEmpty)
-                      Text(loan.notes, style: AppTextStyles.caption),
-                  ],
-                ),
-              ),
-              // Status chip
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: AppTextStyles.caption.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w700,
+
+              // ── Expanded Content (On Tap) ──
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(height: 1, color: AppColors.borderLight),
+                      const SizedBox(height: 10),
+                      // Stats Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _LoanStat(
+                              label: 'Principal',
+                              value: '₹${fmt.format(loan.principal)}',
+                            ),
+                          ),
+                          Expanded(
+                            child: _LoanStat(
+                              label: 'Total Owed',
+                              value: '₹${fmt.format(loan.currentTotal)}',
+                              valueStyle: AppTextStyles.h3.copyWith(
+                                fontSize: 13,
+                                color: isGiven
+                                    ? AppColors.incomeGreen
+                                    : AppColors.expenseRed,
+                              ),
+                            ),
+                          ),
+                          if (loan.repaymentDate != null)
+                            Expanded(
+                              child: _LoanStat(
+                                label: 'Due Date',
+                                value: DateFormat('d MMM yyyy')
+                                    .format(loan.repaymentDate!),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (loan.notes.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.inputFill,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            loan.notes,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primaryNavy,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      // Action buttons: Mark Paid, Edit, Delete (Delete ALWAYS available)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Delete action button
+                          GestureDetector(
+                            onTap: _handleDelete,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: AppColors.expenseRed.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.delete_outline_rounded,
+                                      size: 13, color: AppColors.expenseRed),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Delete',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.expenseRed,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Edit button
+                              GestureDetector(
+                                onTap: () => showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (_) => AddLoanSheet(loan: loan),
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.inputFill,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.edit_rounded,
+                                          size: 13,
+                                          color: AppColors.primaryNavy),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Edit',
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: AppColors.primaryNavy,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Toggle Paid / Active button
+                              GestureDetector(
+                                onTap: _handleTogglePaid,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: isPaid
+                                        ? AppColors.inputFill
+                                        : AppColors.incomeGreen,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    isPaid ? 'Mark Active' : 'Mark Paid',
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: isPaid
+                                          ? AppColors.primaryNavy
+                                          : Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
+                crossFadeState: _isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 200),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          // Amount row
-          Row(
-            children: [
-              Expanded(
-                child: _LoanStat(
-                  label: 'Principal',
-                  value: '₹${fmt.format(loan.principal)}',
-                ),
-              ),
-              Expanded(
-                child: _LoanStat(
-                  label: 'Total',
-                  value: '₹${fmt.format(loan.currentTotal)}',
-                  valueStyle: AppTextStyles.h3.copyWith(
-                    color: isGiven
-                        ? AppColors.incomeGreen
-                        : AppColors.expenseRed,
-                  ),
-                ),
-              ),
-              if (daysLeft != null && loan.status != 'paid')
-                Expanded(
-                  child: _LoanStat(
-                    label: daysLeft >= 0 ? 'Days left' : 'Days overdue',
-                    value: '${daysLeft.abs()}d',
-                    valueStyle: AppTextStyles.h3.copyWith(
-                      color: daysLeft < 0
-                          ? AppColors.expenseRed
-                          : daysLeft <= 7
-                              ? const Color(0xFFE07B00)
-                              : AppColors.primaryNavy,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          if (loan.repaymentDate != null && loan.status != 'paid') ...[
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today_rounded,
-                    size: 12, color: AppColors.mutedText),
-                const SizedBox(width: 4),
-                Text(
-                  'Due ${DateFormat('d MMM yyyy').format(loan.repaymentDate!)}',
-                  style: AppTextStyles.caption,
-                ),
-              ],
-            ),
-          ],
-          if (loan.status != 'paid') ...[
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(color: AppColors.borderLight, height: 1),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _ActionButton(
-                  label: 'Mark Paid',
-                  onTap: () {
-                    final paidLoan = loan.copyWith(
-                      status: 'paid',
-                      total: loan.currentTotal,
-                    );
-                    ref
-                        .read(loanNotifierProvider.notifier)
-                        .updateLoan(paidLoan);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -416,34 +621,6 @@ class _LoanStat extends StatelessWidget {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppColors.inputFill,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.label.copyWith(
-            color: AppColors.incomeGreen,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _SummaryCard extends StatelessWidget {
   final String label;

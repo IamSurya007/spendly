@@ -107,7 +107,7 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
     final interest = principal * (interestRate / 100.0) * (elapsedDays / 365.0);
     final calculatedTotal = principal + interest;
 
-    setState(() => _isSaving = true);
+    Navigator.pop(context);
 
     final oldLoan = widget.loan;
     if (oldLoan != null) {
@@ -121,7 +121,7 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
         repaymentDate: _repaymentDate,
         createdAt: _startDate,
       );
-      await ref.read(loanNotifierProvider.notifier).updateLoan(updatedLoan);
+      ref.read(loanNotifierProvider.notifier).updateLoan(updatedLoan);
     } else {
       // ADD MODE
       final loan = Loan(
@@ -136,13 +136,8 @@ class _AddLoanSheetState extends ConsumerState<AddLoanSheet> {
         notes: _notesController.text.trim(),
         createdAt: _startDate,
       );
-      await ref.read(loanNotifierProvider.notifier).addLoan(loan);
+      ref.read(loanNotifierProvider.notifier).addLoan(loan);
     }
-
-    if (mounted) {
-      Navigator.pop(context);
-    }
-    setState(() => _isSaving = false);
   }
 
   @override

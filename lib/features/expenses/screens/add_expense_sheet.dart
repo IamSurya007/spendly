@@ -139,7 +139,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         method: _selectedMethod,
         merchant: cleanMerchant,
         accountId: targetAccountId,
-        isCountedAsSpend: _isCredit ? true : _isCountedAsSpend,
+        isCountedAsSpend: _isCountedAsSpend,
       );
 
       final categoryChanged = oldExpense.category != (_selectedCategory ?? '');
@@ -176,15 +176,15 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
       // Perform database mutations
       if (applyToAll) {
-        await expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory ?? '');
+        expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory ?? '');
       }
       
       // Save auto-categorizer rule for future captures
       if (categoryChanged && cleanMerchant.isNotEmpty) {
-        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
+        expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
       }
 
-      await expenseNotifier.updateExpense(updatedExpense);
+      expenseNotifier.updateExpense(updatedExpense);
 
       if (mounted) {
         Navigator.pop(context);
@@ -215,15 +215,15 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         merchant: cleanMerchant,
         accountId: targetAccountId,
         createdAt: DateTime.now(),
-        isCountedAsSpend: _isCredit ? true : _isCountedAsSpend,
+        isCountedAsSpend: _isCountedAsSpend,
       );
 
       // Save a category rule for this merchant on manual creation too if entered!
       if (cleanMerchant.isNotEmpty) {
-        await expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
+        expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
       }
 
-      await expenseNotifier.addExpense(expense);
+      expenseNotifier.addExpense(expense);
 
       if (mounted) {
         Navigator.pop(context);
@@ -240,10 +240,6 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
           ),
         );
       }
-    }
-
-    if (mounted) {
-      setState(() => _isSaving = false);
     }
   }
 
@@ -718,57 +714,66 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // ── Spend classification toggle (debit only) ──────────────
-          if (!_isCredit)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
+          // ── Spend / Income classification toggle ──────────────
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: _isCountedAsSpend
+                  ? AppColors.inputFill
+                  : (_isCredit
+                      ? AppColors.incomeGreen.withOpacity(0.06)
+                      : AppColors.expenseRed.withOpacity(0.06)),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+              border: Border.all(
                 color: _isCountedAsSpend
-                    ? AppColors.inputFill
-                    : AppColors.expenseRed.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                border: Border.all(
-                  color: _isCountedAsSpend
-                      ? AppColors.borderLight
-                      : AppColors.expenseRed.withOpacity(0.25),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Count as spend',
-                          style: AppTextStyles.h3,
-                        ),
-                        Text(
-                          _isCountedAsSpend
-                              ? 'Included in budget & spend totals'
-                              : 'Excluded from budget & spend totals',
-                          style: AppTextStyles.caption.copyWith(
-                            color: _isCountedAsSpend
-                                ? AppColors.mutedText
-                                : AppColors.expenseRed,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: _isCountedAsSpend,
-                    onChanged: (val) => setState(() => _isCountedAsSpend = val),
-                    activeColor: AppColors.primaryNavy,
-                    inactiveThumbColor: AppColors.mutedText,
-                    inactiveTrackColor: AppColors.borderLight,
-                  ),
-                ],
+                    ? AppColors.borderLight
+                    : (_isCredit
+                        ? AppColors.incomeGreen.withOpacity(0.25)
+                        : AppColors.expenseRed.withOpacity(0.25)),
               ),
             ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isCredit ? 'Count as income' : 'Count as spend',
+                        style: AppTextStyles.h3,
+                      ),
+                      Text(
+                        _isCredit
+                            ? (_isCountedAsSpend
+                                ? 'Included in monthly income totals'
+                                : 'Excluded from monthly income totals')
+                            : (_isCountedAsSpend
+                                ? 'Included in budget & spend totals'
+                                : 'Excluded from budget & spend totals'),
+                        style: AppTextStyles.caption.copyWith(
+                          color: _isCountedAsSpend
+                              ? AppColors.mutedText
+                              : (_isCredit
+                                  ? AppColors.incomeGreen
+                                  : AppColors.expenseRed),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _isCountedAsSpend,
+                  onChanged: (val) => setState(() => _isCountedAsSpend = val),
+                  activeColor: _isCredit ? AppColors.incomeGreen : AppColors.primaryNavy,
+                  inactiveThumbColor: AppColors.mutedText,
+                  inactiveTrackColor: AppColors.borderLight,
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: AppSpacing.lg),
 

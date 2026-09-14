@@ -10,6 +10,7 @@ class ExpenseCollection with SyncMetadataMixin {
 
   late double amount;
   late String category;
+  String subcategory = '';
   late String note;
   late DateTime date;
   late String method;
@@ -33,6 +34,7 @@ class ExpenseCollection with SyncMetadataMixin {
     final col = ExpenseCollection()
       ..amount = expense.amount
       ..category = expense.category
+      ..subcategory = expense.subcategory
       ..note = expense.note
       ..date = expense.date
       ..method = expense.method
@@ -58,6 +60,7 @@ class ExpenseCollection with SyncMetadataMixin {
       id: clientId,
       amount: amount,
       category: category,
+      subcategory: subcategory,
       note: note,
       date: date,
       method: method,
@@ -73,6 +76,7 @@ class ExpenseCollection with SyncMetadataMixin {
     return {
       'amount': amount,
       'category': category,
+      'subcategory': subcategory,
       'note': note,
       'date': date.toUtc().toIso8601String(),
       'method': method.toUpperCase(), // backend enums: CASH, UPI, CARD, etc.

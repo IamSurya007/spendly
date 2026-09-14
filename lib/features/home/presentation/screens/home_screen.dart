@@ -229,6 +229,8 @@ class HomeScreen extends ConsumerWidget {
                 border: Border.all(color: AppColors.borderLight),
               ),
               child: expensesAsync.when(
+                skipLoadingOnRefresh: true,
+                skipLoadingOnReload: true,
                 data: (expenses) {
                   if (expenses.isEmpty) {
                     return Padding(

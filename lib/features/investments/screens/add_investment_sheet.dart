@@ -112,7 +112,7 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
       _startDate.day,
     );
 
-    setState(() => _isSaving = true);
+    Navigator.pop(context);
 
     final inv = widget.investment;
     if (inv != null) {
@@ -128,7 +128,7 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
         maturityDate: maturityDate,
         institution: _institutionController.text.trim(),
       );
-      await ref
+      ref
           .read(investmentNotifierProvider.notifier)
           .updateInvestment(updated);
     } else {
@@ -145,13 +145,10 @@ class _AddInvestmentSheetState extends ConsumerState<AddInvestmentSheet> {
         maturityDate: maturityDate,
         institution: _institutionController.text.trim(),
       );
-      await ref
+      ref
           .read(investmentNotifierProvider.notifier)
           .addInvestment(investment);
     }
-
-    if (mounted) Navigator.pop(context);
-    setState(() => _isSaving = false);
   }
 
   @override

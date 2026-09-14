@@ -12,6 +12,7 @@ class Expense {
   final String merchant;
   final String accountId;
   final DateTime createdAt;
+  final String subcategory;
   /// Only applicable to debit (amount > 0) transactions.
   /// When false, this transaction is excluded from spend totals & budget tracking.
   /// Income (amount < 0) is always counted — this flag has no effect on credits.
@@ -21,6 +22,7 @@ class Expense {
     required this.id,
     required this.amount,
     required this.category,
+    this.subcategory = '',
     this.note = '',
     required this.date,
     this.method = 'upi',
@@ -36,6 +38,7 @@ class Expense {
       id: docId,
       amount: (json['amount'] as num).toDouble(),
       category: json['category'] as String? ?? 'Other',
+      subcategory: json['subcategory'] as String? ?? '',
       note: json['note'] as String? ?? '',
       date: (json['date'] as Timestamp).toDate(),
       method: (json['method'] as String? ?? 'upi').toLowerCase(),
@@ -50,6 +53,7 @@ class Expense {
   Map<String, dynamic> toJson() => {
         'amount': amount,
         'category': category,
+        'subcategory': subcategory,
         'note': note,
         'date': Timestamp.fromDate(date),
         'method': method,
@@ -64,6 +68,7 @@ class Expense {
     String? id,
     double? amount,
     String? category,
+    String? subcategory,
     String? note,
     DateTime? date,
     String? method,
@@ -77,6 +82,7 @@ class Expense {
       id: id ?? this.id,
       amount: amount ?? this.amount,
       category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
       note: note ?? this.note,
       date: date ?? this.date,
       method: method ?? this.method,
