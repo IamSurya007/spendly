@@ -1,5 +1,3 @@
-import 'package:isar_plus/isar_plus.dart';
-
 enum SyncStatus {
   synced,
   pendingCreate,

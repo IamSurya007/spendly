@@ -1,6 +1,5 @@
 import 'package:isar_plus/isar_plus.dart';
 import 'package:spendly/core/sync/outbox_operation.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:spendly/features/accounts/models/account_model.dart';
 import 'package:spendly/core/sync/collections/account_collection.dart';
@@ -11,7 +10,6 @@ import 'package:spendly/core/repositories/i_account_repository.dart';
 
 class IsarAccountRepository implements IAccountRepository {
   Isar get _isar => IsarDatabase.instance.isar;
-  final _uuid = const Uuid();
 
   @override
   Stream<List<Account>> watchAccounts() {
