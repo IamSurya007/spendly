@@ -13,17 +13,20 @@ import '../../../expenses/services/expense_providers.dart';
 import '../../../loans/services/loan_providers.dart';
 import '../../../investments/services/investment_providers.dart';
 import '../../../../core/services/excel_export_service.dart';
+import '../../../accounts/presentation/widgets/accounts_carousel.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/quick_actions.dart';
 
 class HomeScreen extends ConsumerWidget {
   final User user;
   final VoidCallback onSeeAll;
+  final VoidCallback onProfileTap;
 
   const HomeScreen({
     super.key,
     required this.user,
     required this.onSeeAll,
+    required this.onProfileTap,
   });
 
   String _greeting() {
@@ -106,23 +109,26 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    // Avatar
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppColors.inputFill,
-                      backgroundImage: user.photoURL != null
-                          ? NetworkImage(user.photoURL!)
-                          : null,
-                      child: user.photoURL == null
-                          ? Text(
-                              _firstName().isNotEmpty
-                                  ? _firstName()[0].toUpperCase()
-                                  : 'U',
-                              style: AppTextStyles.h3.copyWith(
-                                color: AppColors.accent,
-                              ),
-                            )
-                          : null,
+                    // Avatar — taps to Profile
+                    GestureDetector(
+                      onTap: onProfileTap,
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.inputFill,
+                        backgroundImage: user.photoURL != null
+                            ? NetworkImage(user.photoURL!)
+                            : null,
+                        child: user.photoURL == null
+                            ? Text(
+                                _firstName().isNotEmpty
+                                    ? _firstName()[0].toUpperCase()
+                                    : 'U',
+                                style: AppTextStyles.h3.copyWith(
+                                  color: AppColors.accent,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
                   ],
                 ),
@@ -135,6 +141,13 @@ class HomeScreen extends ConsumerWidget {
             ),
   
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+
+            // ── Accounts Carousel ─────────────────────
+            const SliverToBoxAdapter(
+              child: AccountsCarousel(),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
   
             // ── Quick Actions ─────────────────────────
             SliverToBoxAdapter(
@@ -144,6 +157,14 @@ class HomeScreen extends ConsumerWidget {
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (_) => const AddExpenseSheet(),
+                ),
+                onAddCashSpend: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const AddExpenseSheet(
+                    prefilledMethod: 'cash',
+                  ),
                 ),
                 onScanSms: () => showModalBottomSheet(
                   context: context,

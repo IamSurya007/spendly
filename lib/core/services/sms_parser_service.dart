@@ -2,11 +2,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../features/accounts/models/account_model.dart';
+
 /// Prefilled transaction details extracted from SMS.
 class ParsedSms {
   final double amount;
   final String merchant;
   final String account;
+  final String bankName;
+  final String accountSnippet;
+  final AccountType accountType;
   final bool isDebit;
   final DateTime date;
   final String body;
@@ -15,6 +20,9 @@ class ParsedSms {
     required this.amount,
     required this.merchant,
     required this.account,
+    this.bankName = 'Bank',
+    this.accountSnippet = '',
+    this.accountType = AccountType.bank_account,
     required this.isDebit,
     required this.date,
     required this.body,
@@ -24,6 +32,9 @@ class ParsedSms {
         'amount': amount,
         'merchant': merchant,
         'account': account,
+        'bankName': bankName,
+        'accountSnippet': accountSnippet,
+        'accountType': accountType.name,
         'isDebit': isDebit,
         'date': date.toIso8601String(),
         'body': body,
@@ -45,7 +56,7 @@ class SmsParserService {
 
   /// Scans the last [limit] messages in the device inbox and returns parsed transactions.
   /// Useful to backfill/import old expenses without waiting for new SMS messages.
-  Future<List<ParsedSms>> scanInbox({int limit = 50}) async {
+  Future<List<ParsedSms>> scanInbox({int limit = 500}) async {
     final status = await Permission.sms.status;
     if (!status.isGranted) return [];
 
@@ -54,15 +65,13 @@ class SmsParserService {
         kinds: [SmsQueryKind.inbox],
         count: limit,
       );
-      final uniqueSenders = messages.map((m) => m.address).toSet();
-      print(uniqueSenders);
       final List<ParsedSms> transactions = [];
       for (final msg in messages) {
         final body = msg.body;
         final date = msg.date;
         final sender = msg.address ?? '';
         if (body != null && _isLikelyTransactionalSender(sender)) {
-          final parsed = parseSmsBody(body, date ?? DateTime.now());
+          final parsed = parseSmsBody(body, date ?? DateTime.now(), sender: sender);
           if (parsed != null) {
             transactions.add(parsed);
           }
@@ -83,6 +92,37 @@ class SmsParserService {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<List<ParsedSms>> getPendingTransactions() async {
+    try {
+      final List<dynamic>? pendingList =
+          await _channel.invokeListMethod('getPendingTransactions');
+      if (pendingList != null && pendingList.isNotEmpty) {
+        final List<ParsedSms> results = [];
+        for (final item in pendingList) {
+          if (item is Map) {
+            final parsed = _parsePlatformMap(item);
+            if (parsed != null) {
+              results.add(parsed);
+            }
+          }
+        }
+        return results;
+      }
+    } catch (_) {}
+
+    final single = await getPendingTransaction();
+    if (single != null) {
+      return [single];
+    }
+    return [];
+  }
+
+  Future<void> clearPendingTransactions() async {
+    try {
+      await _channel.invokeMethod('clearPendingTransactions');
+    } catch (_) {}
   }
 
   /// Listens to real-time platform channel transactions captured while app is open.
@@ -107,119 +147,134 @@ class SmsParserService {
 
     final dateStr = map['date'] as String? ?? '';
     final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+    final body = map['body'] as String? ?? '';
+    final sender = map['sender'] as String? ?? '';
 
-    return ParsedSms(
-      amount: amount,
-      merchant: map['merchant'] as String? ?? 'Unknown Merchant',
-      account: 'SMS Capture',
-      isDebit: map['isDebit'] as bool? ?? true,
-      date: date,
-      body: map['body'] as String? ?? '',
-    );
+    return parseSmsBody(body, date, sender: sender) ??
+        ParsedSms(
+          amount: amount,
+          merchant: map['merchant'] as String? ?? 'Unknown Merchant',
+          account: 'SMS Account',
+          bankName: 'Bank',
+          accountSnippet: '',
+          accountType: AccountType.bank_account,
+          isDebit: map['isDebit'] as bool? ?? true,
+          date: date,
+          body: body,
+        );
   }
 
-  static const _knownBankSenders = {
-    'HDFCBK', 'ICICIB', 'SBIINB', 'SBIPSG', 'AXISBK', 'KOTAKB',
-    'PAYTM', 'PYTM', 'GPAY', 'PHONPE', 'AMAZONP', 'YESBNK',
-    'CENTBK', 'PNBSMS', 'BOIIND', 'UNIONB', 'CANBNK', 'IDFCFB',
-  };
+  static String detectBankName(String sender, String body) {
+    final upperSender = sender.toUpperCase();
+    final lowerBody = body.toLowerCase();
 
-  static bool _isLikelyTransactionalSender(String sender) {
-    final upper = sender.toUpperCase().trim();
-    if (upper.isEmpty) return true; // don't reject on missing sender data — let content filters decide
+    if (upperSender.contains('HDFC') || lowerBody.contains('hdfc')) return 'HDFC Bank';
+    if (upperSender.contains('ICICI') || lowerBody.contains('icici')) return 'ICICI Bank';
+    if (upperSender.contains('SBI') || lowerBody.contains('sbi')) return 'SBI';
+    if (upperSender.contains('AXIS') || lowerBody.contains('axis')) return 'Axis Bank';
+    if (upperSender.contains('KOTAK') || lowerBody.contains('kotak')) return 'Kotak Bank';
+    if (upperSender.contains('PYTM') || upperSender.contains('PAYTM') || lowerBody.contains('paytm')) return 'Paytm';
+    if (upperSender.contains('GPAY') || lowerBody.contains('gpay') || lowerBody.contains('google pay')) return 'Google Pay';
+    if (upperSender.contains('PHONPE') || lowerBody.contains('phonepe')) return 'PhonePe';
+    if (upperSender.contains('AMAZON') || lowerBody.contains('amazon pay')) return 'Amazon Pay';
+    if (upperSender.contains('YES') || lowerBody.contains('yes bank')) return 'Yes Bank';
+    if (upperSender.contains('IDFC') || lowerBody.contains('idfc')) return 'IDFC First Bank';
+    if (upperSender.contains('PNB') || lowerBody.contains('pnb')) return 'PNB';
+    if (upperSender.contains('BOI') || lowerBody.contains('bank of india')) return 'Bank of India';
+    if (upperSender.contains('UNION') || lowerBody.contains('union bank')) return 'Union Bank';
+    if (upperSender.contains('CANBNK') || lowerBody.contains('canara bank')) return 'Canara Bank';
+    if (upperSender.contains('CENTBK') || lowerBody.contains('central bank')) return 'Central Bank';
+    if (upperSender.contains('INDUS') || lowerBody.contains('indusind')) return 'IndusInd Bank';
+    if (upperSender.contains('RBL') || lowerBody.contains('rbl')) return 'RBL Bank';
+    if (upperSender.contains('BOB') || lowerBody.contains('bank of baroda')) return 'Bank of Baroda';
+    if (upperSender.contains('HSBC') || lowerBody.contains('hsbc')) return 'HSBC Bank';
+    if (upperSender.contains('FED') || lowerBody.contains('federal bank')) return 'Federal Bank';
+    if (upperSender.contains('AUBNK') || lowerBody.contains('au bank')) return 'AU Small Finance Bank';
 
-    // Long plain phone numbers are never bank/DLT senders
-    if (RegExp(r'^\+?\d{7,}$').hasMatch(upper)) return false;
+    return 'Bank';
+  }
 
-    // DLT header pattern: XX-NAME-SUFFIX
-    final match = RegExp(r'^[A-Z]{2}-([A-Z0-9]+)-([A-Z])$').firstMatch(upper);
-    if (match != null) {
-      final suffix = match.group(2);
-      // T = Transactional, S = Service (explicit/implicit) — both can carry real transaction data
-      // P = Promotional, G = Government — exclude
-      return suffix == 'T' || suffix == 'S';
+  static AccountType detectAccountType(String body) {
+    final lower = body.toLowerCase();
+    if (lower.contains('credit card') ||
+        lower.contains('card ending') ||
+        lower.contains('cc ending') ||
+        lower.contains('cc no') ||
+        lower.contains('card xx') ||
+        lower.contains('card ending in') ||
+        lower.contains('charged to card')) {
+      return AccountType.credit_card;
     }
-
-    // Doesn't match the DLT pattern at all (e.g. bare shortcode) — pass through to content filters
-    return true;
+    if (lower.contains('wallet') ||
+        lower.contains('paytm wallet') ||
+        lower.contains('amazon balance') ||
+        lower.contains('wallet balance')) {
+      return AccountType.wallet;
+    }
+    return AccountType.bank_account;
   }
-  static ParsedSms? parseSmsBody(String body, DateTime smsTime) {
+
+  static ParsedSms? parseSmsBody(String body, DateTime smsTime, {String sender = ''}) {
     final cleanBody = body.toLowerCase();
 
-    // 1. Hard exclude promotional/marketing/offer language first
-    const promoKeywords = [
-      'sale', 'offer', 'cashback offer', '% off', 'discount', 'free',
-      'win', 'buy now', 'shop now', 'voucher', 'coupon', 'deal',
-      'subscribe', 'download the app', 'click here', 't&c apply',
-      'limited period', 'extension', 'gift card', 'reward points expir',
-      'pre-approved', 'preapproved', 'pre approved', 'eligib',
-      'instant loan', 'apply now', 'interest rate', 'emi starts',
-      'emi at', 'loan offer', 'credit limit enhance', 'insurance',
-      'policy', 'invest now', 'mutual fund', 'trade now',
-      'install', 'http://', 'https://', 'bit.ly', 'unsubscribe',
-      'promo', 'flat ', 'starting at', 'hurry', 'last chance',
-      'exclusive offer', 'congratulations', 'you have won', 'claim now',
+    // 1. Exclude explicit marketing / promotional spam (refined to avoid dropping real receipts)
+    const promoSpamKeywords = [
+      'pre-approved', 'preapproved', 'pre approved',
+      'instant loan', 'apply now', 'apply for card', 'loan offer',
+      'credit limit enhance', 'win up to', 'congratulations! you have won',
+      'you have won', 'claim your reward', 'click to apply',
+      'download the app to claim', 'buy now pay later', 'flat % off',
     ];
-    if (promoKeywords.any((k) => cleanBody.contains(k))) return null;
+    if (promoSpamKeywords.any((k) => cleanBody.contains(k))) return null;
 
-    // 2. Require SPECIFIC transaction evidence — masked account/card or txn ref
-    final hasMaskedAccountOrCard = RegExp(
-      r'(?:a/c|acc(?:t|ount)?|card)\s*(?:no\.?|number)?\s*[x*]{2,}\d{2,}',
-      caseSensitive: false,
-    ).hasMatch(cleanBody);
-
-    final hasTxnRef = RegExp(
-      r'(?:ref|txn|transaction)\s*(?:no|id)?[:.]?\s*\w{4,}',
-      caseSensitive: false,
-    ).hasMatch(cleanBody);
-
-    final hasBalanceMention = cleanBody.contains('avl bal') ||
-        cleanBody.contains('available balance') ||
-        cleanBody.contains('bal:') ||
-        cleanBody.contains('upi');
-
-    final hasAccountEvidence =
-        hasMaskedAccountOrCard || hasTxnRef || hasBalanceMention;
-
+    // 2. Debit / Credit Direction Check
     final isDebit = cleanBody.contains('debited') ||
         cleanBody.contains('sent') ||
         cleanBody.contains('paid') ||
         cleanBody.contains('spent') ||
         cleanBody.contains('charged') ||
-        cleanBody.contains('withdrawn');
+        cleanBody.contains('withdrawn') ||
+        cleanBody.contains('transferred') ||
+        cleanBody.contains('txnd') ||
+        cleanBody.contains('txn of') ||
+        cleanBody.contains('purchase of') ||
+        cleanBody.contains('payment of') ||
+        cleanBody.contains('transfer to') ||
+        cleanBody.contains('used at') ||
+        cleanBody.contains('drawn');
 
     final isCredit = cleanBody.contains('credited') ||
         cleanBody.contains('received') ||
         cleanBody.contains('deposited') ||
-        cleanBody.contains('refunded');
+        cleanBody.contains('refunded') ||
+        cleanBody.contains('added') ||
+        cleanBody.contains('cashback of');
 
-    // 3. Require explicit direction AND account evidence — no silent default
     if (!isDebit && !isCredit) return null;
-    if (!hasAccountEvidence) return null;
 
+    // 3. Amount Extraction (supports Rs, Rs., INR, Rupees, ₹, e.g. Rs 500 or 500 INR)
     final amountRegex = RegExp(
-      r'(?:rs\.?|inr|rupees?)\s*([0-9,]+\.?[0-9]*)',
+      r'(?:rs\.?|inr|rupees?|₹)\s*([0-9,]+(?:\.[0-9]+)?)|([0-9,]+(?:\.[0-9]+)?)\s*(?:rs\.?|inr|rupees?|₹|/-)',
       caseSensitive: false,
     );
     final amountMatch = amountRegex.firstMatch(body);
     if (amountMatch == null) return null;
 
-    final amountStr = amountMatch.group(1)?.replaceAll(',', '') ?? '';
+    final amountStr = (amountMatch.group(1) ?? amountMatch.group(2))?.replaceAll(',', '') ?? '';
     final amount = double.tryParse(amountStr);
     if (amount == null || amount <= 0) return null;
 
     final debit = isDebit || !isCredit;
 
-    // ... merchant + account extraction unchanged below
-    // Extract Merchant Name (words after "to", "at", "towards", or "info:")
+    // 4. Extract Merchant Name (words after "to", "at", "towards", "via", "spent on", or "info:")
     String merchant = 'Unknown Merchant';
     final toAtPatterns = [
       RegExp(
-        r'(?:to|at|towards)\s+([a-zA-Z0-9\s\.\-\*]+?)(?:\s+on|\s+ref|\s+via|\s+from|\s+balance|\.|$)',
+        r'(?:to|at|towards|via|spent on|paid to)\s+([a-zA-Z0-9\s\.\-\*@]+?)(?:\s+on|\s+ref|\s+via|\s+from|\s+bal|\s+avl|\.|$)',
         caseSensitive: false,
       ),
       RegExp(
-        r'(?:info:?|vpa:?)\s*([a-zA-Z0-9\s\.\-\*@]+?)(?:\s+on|\s+ref|\.|$)',
+        r'(?:info:?|vpa:?|merchant:?)\s*([a-zA-Z0-9\s\.\-\*@]+?)(?:\s+on|\s+ref|\.|$)',
         caseSensitive: false,
       ),
     ];
@@ -235,21 +290,39 @@ class SmsParserService {
       }
     }
 
-    // Extract Bank Account Identifier
-    String account = 'Bank Account';
-    final acctPattern = RegExp(
-      r'(?:a/c|acct|account|card)\s*(?:no\.?)?\s*\*?x*([0-9]{3,4})',
-      caseSensitive: false,
-    );
-    final acctMatch = acctPattern.firstMatch(body);
-    if (acctMatch != null) {
-      account = 'A/c xxxx${acctMatch.group(1)}';
+    // 5. Extract Bank & Account Snippet
+    final bankName = detectBankName(sender, body);
+    final accType = detectAccountType(body);
+    String snippet = '';
+
+    final snippetPatterns = [
+      RegExp(r'(?:a/c|acct|account|card|ending(?:\s+in)?)\s*(?:no\.?|num\.?|number)?\s*[:\s]*\*?[x*]*([0-9]{3,4})', caseSensitive: false),
+      RegExp(r'[x*]{2,}([0-9]{3,4})', caseSensitive: false),
+      RegExp(r'(?:a/c|acct|account|card)\s*(?:no\.?|num\.?|number)?\s*[:\s]*([0-9]{3,4})', caseSensitive: false),
+    ];
+
+    for (final pat in snippetPatterns) {
+      final match = pat.firstMatch(body);
+      if (match != null) {
+        final digits = match.group(1);
+        if (digits != null && digits.isNotEmpty) {
+          snippet = 'xx$digits';
+          break;
+        }
+      }
     }
+
+    final accountTitle = snippet.isNotEmpty
+        ? '$bankName ($snippet)'
+        : (bankName != 'Bank' ? bankName : 'Bank Account');
 
     return ParsedSms(
       amount: amount,
       merchant: merchant,
-      account: account,
+      account: accountTitle,
+      bankName: bankName,
+      accountSnippet: snippet,
+      accountType: accType,
       isDebit: debit,
       date: smsTime,
       body: body,
@@ -271,5 +344,15 @@ class SmsParserService {
     }
 
     return cleaned.isNotEmpty ? cleaned : 'Unknown Merchant';
+  }
+
+  static bool _isLikelyTransactionalSender(String sender) {
+    final upper = sender.toUpperCase().trim();
+    if (upper.isEmpty) return true;
+
+    // Long plain phone numbers are usually not bank DLT headers
+    if (RegExp(r'^\+?\d{10,}$').hasMatch(upper)) return false;
+
+    return true;
   }
 }

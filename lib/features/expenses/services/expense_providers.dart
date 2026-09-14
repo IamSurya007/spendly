@@ -9,12 +9,10 @@ final expensesStreamProvider = StreamProvider<List<Expense>>((ref) {
   return ref.watch(expenseRepositoryProvider).watchExpenses();
 });
 
-/// Current month's budget categories from the repository.
+/// Budget category limits — loaded from persistent key so limits carry over every month.
 final budgetProvider =
     FutureProvider<Map<String, Map<String, dynamic>>>((ref) async {
-  final now = DateTime.now();
-  final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-  return ref.watch(expenseRepositoryProvider).getBudgetForMonth(month);
+  return ref.watch(expenseRepositoryProvider).getBudgetForMonth('all');
 });
 
 /// Mutates expenses via [IExpenseRepository].
@@ -66,8 +64,8 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> updateBudgetLimit(String category, double limit) async {
     state = const AsyncValue.loading();
     try {
-      final now = DateTime.now();
-      final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      // Use 'all' key so limits persist across months
+      const month = 'all';
       final currentBudget = await _repo.getBudgetForMonth(month);
 
       final updatedCategoryData = Map<String, dynamic>.from(currentBudget[category] ?? {'spent': 0.0});
@@ -93,16 +91,32 @@ final monthlyIncomeProvider = Provider<double>((ref) {
   final now = DateTime.now();
   return expenses
       .where((e) => e.date.year == now.year && e.date.month == now.month)
-      .where((e) => e.amount < 0) // negative = credit
+      .where((e) => e.amount < 0) // negative = credit/income
       .fold(0.0, (sum, e) => sum + e.amount.abs());
 });
 
-/// Computed: total expenses for the current month.
+/// Computed: total counted spends for the current month (excludes isCountedAsSpend=false).
 final monthlyExpensesProvider = Provider<double>((ref) {
   final expenses = ref.watch(expensesStreamProvider).valueOrNull ?? [];
   final now = DateTime.now();
   return expenses
       .where((e) => e.date.year == now.year && e.date.month == now.month)
-      .where((e) => e.amount > 0)
+      .where((e) => e.amount > 0 && e.isCountedAsSpend)
       .fold(0.0, (sum, e) => sum + e.amount);
+});
+
+/// Computed: income minus spends this month (positive = surplus).
+final monthlyLeftProvider = Provider<double>((ref) {
+  final income = ref.watch(monthlyIncomeProvider);
+  final spends = ref.watch(monthlyExpensesProvider);
+  return income - spends;
+});
+
+/// Computed: total transaction count for the current month.
+final monthlyTransactionCountProvider = Provider<int>((ref) {
+  final expenses = ref.watch(expensesStreamProvider).valueOrNull ?? [];
+  final now = DateTime.now();
+  return expenses
+      .where((e) => e.date.year == now.year && e.date.month == now.month)
+      .length;
 });

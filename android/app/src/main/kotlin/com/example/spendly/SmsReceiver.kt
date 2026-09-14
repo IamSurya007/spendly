@@ -9,6 +9,8 @@ import android.content.Intent
 import android.os.Build
 import android.telephony.SmsMessage
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,7 +39,7 @@ class SmsReceiver : BroadcastReceiver() {
 
                             val parsed = parseSms(body)
                             if (parsed != null) {
-                                showNotification(context, parsed, sender)
+                                saveAndNotifyTransaction(context, parsed, sender)
                             }
                         }
                     }
@@ -55,9 +57,6 @@ class SmsReceiver : BroadcastReceiver() {
         "CENTBK", "PNBSMS", "BOIIND", "UNIONB", "CANBNK", "IDFCFB"
     )
 
-    // DLT-style header pattern: 2-letter telecom prefix + hyphen + 6-char alphanumeric code
-    private val dltHeaderPattern = Regex("^[A-Z]{2}-[A-Z0-9]{6}$")
-
     private fun isLikelyTransactionalSender(sender: String): Boolean {
         val upperSender = sender.uppercase(Locale.ROOT)
 
@@ -67,10 +66,6 @@ class SmsReceiver : BroadcastReceiver() {
         // Check against known bank/UPI headers (match the code part, ignore prefix)
         val codePart = upperSender.substringAfter("-", upperSender)
         return (knownBankSenders.any { codePart.contains(it) })
-
-//        // Fallback: does it look like a DLT transactional header at all?
-//        // (still passes through to content filters — this is permissive, not authoritative)
-//        return dltHeaderPattern.matches(upperSender) || upperSender.length in 6..8
     }
 
     private class ParsedTxn(
@@ -148,7 +143,6 @@ class SmsReceiver : BroadcastReceiver() {
 
         val debit = isDebit || !isCredit
 
-
         // Extract merchant name
         var merchant = "Unknown Merchant"
         val merchantPatterns = arrayOf(
@@ -200,6 +194,45 @@ class SmsReceiver : BroadcastReceiver() {
         return capitalized.toString().trim()
     }
 
+    private fun saveAndNotifyTransaction(context: Context, txn: ParsedTxn, sender: String) {
+        val txnMap = hashMapOf<String, Any>(
+            "amount" to txn.amount,
+            "merchant" to txn.merchant,
+            "isDebit" to txn.isDebit,
+            "date" to txn.date,
+            "body" to txn.body,
+            "source" to "sms",
+            "sender" to sender
+        )
+
+        // 1. Save to SharedPreferences so it persists natively for auto-saving
+        try {
+            val prefs = context.getSharedPreferences("spendly_sms_prefs", Context.MODE_PRIVATE)
+            val existingJson = prefs.getString("pending_transactions", "[]") ?: "[]"
+            val jsonArray = JSONArray(existingJson)
+
+            val obj = JSONObject().apply {
+                put("amount", txn.amount)
+                put("merchant", txn.merchant)
+                put("isDebit", txn.isDebit)
+                put("date", txn.date)
+                put("body", txn.body)
+                put("source", "sms")
+                put("sender", sender)
+            }
+            jsonArray.put(obj)
+            prefs.edit().putString("pending_transactions", jsonArray.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 2. Notify live MainActivity if open
+        MainActivity.onLiveTransactionCaptured(txnMap)
+
+        // 3. Post notification informing user that transaction was auto-saved
+        showNotification(context, txn, sender)
+    }
+
     private fun showNotification(context: Context, txn: ParsedTxn, sender: String) {
         val channelId = "spendly_sms_capture"
         val notificationId = System.currentTimeMillis().toInt()
@@ -217,7 +250,7 @@ class SmsReceiver : BroadcastReceiver() {
             manager.createNotificationChannel(channel)
         }
 
-        // Tap opens MainActivity and forwards details
+        // Tap opens MainActivity
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("amount", txn.amount)
@@ -244,15 +277,15 @@ class SmsReceiver : BroadcastReceiver() {
         val direction = if (txn.isDebit) "debited" else "credited"
         val message = String.format(
             Locale.ROOT,
-            "₹%.2f %s at %s. Tap to confirm.",
+            "₹%.2f %s at %s. Saved to Spendly.",
             txn.amount,
             direction,
             txn.merchant
         )
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_menu_my_calendar) // Simple native calendar icon as fallback
-            .setContentTitle("New Transaction Detected")
+            .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+            .setContentTitle("Transaction Auto-Saved")
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

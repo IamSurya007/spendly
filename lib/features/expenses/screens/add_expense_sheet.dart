@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../accounts/services/account_providers.dart';
 import '../models/expense_model.dart';
 import '../services/expense_providers.dart';
 
@@ -40,10 +41,12 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   final _amountFocus = FocusNode();
 
   String? _selectedCategory;
+  String? _selectedAccountId;
   String _selectedMethod = 'upi';
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
   bool _isCredit = false;
+  bool _isCountedAsSpend = true;
 
   final List<String> _methods = ['cash', 'upi', 'card'];
   final List<IconData> _methodIcons = [
@@ -62,9 +65,11 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       _noteController.text = exp.note;
       _merchantController.text = exp.merchant;
       _selectedCategory = exp.category.isNotEmpty ? exp.category : null;
+      _selectedAccountId = exp.accountId;
       _selectedDate = exp.date;
       _selectedMethod = _methods.contains(exp.method.toLowerCase()) ? exp.method.toLowerCase() : 'upi';
       _isCredit = exp.amount < 0;
+      _isCountedAsSpend = exp.isCountedAsSpend;
     } else {
       if (widget.prefilledAmount != null && widget.prefilledAmount! > 0) {
         final amount = widget.prefilledAmount!;
@@ -81,6 +86,9 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       }
       if (widget.prefilledMethod != null && _methods.contains(widget.prefilledMethod!.toLowerCase())) {
         _selectedMethod = widget.prefilledMethod!.toLowerCase();
+        if (_selectedMethod == 'cash') {
+          _selectedAccountId = 'default_cash';
+        }
       }
       if (widget.prefilledIsCredit != null) {
         _isCredit = widget.prefilledIsCredit!;
@@ -118,6 +126,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     final savedAmount = _isCredit ? -amount : amount;
     final cleanMerchant = _merchantController.text.trim();
     final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
+    final targetAccountId = _selectedAccountId ?? 'default_bank';
 
     final oldExpense = widget.expense;
     if (oldExpense != null) {
@@ -129,6 +138,8 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         date: _selectedDate,
         method: _selectedMethod,
         merchant: cleanMerchant,
+        accountId: targetAccountId,
+        isCountedAsSpend: _isCredit ? true : _isCountedAsSpend,
       );
 
       final categoryChanged = oldExpense.category != (_selectedCategory ?? '');
@@ -202,7 +213,9 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         date: _selectedDate,
         method: _selectedMethod,
         merchant: cleanMerchant,
+        accountId: targetAccountId,
         createdAt: DateTime.now(),
+        isCountedAsSpend: _isCredit ? true : _isCountedAsSpend,
       );
 
       // Save a category rule for this merchant on manual creation too if entered!
@@ -450,6 +463,67 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Account Selector
+          Text('Account', style: AppTextStyles.label),
+          const SizedBox(height: AppSpacing.xs),
+          Consumer(
+            builder: (context, ref, child) {
+              final accountsAsync = ref.watch(accountsStreamProvider);
+              return accountsAsync.when(
+                data: (accounts) {
+                  if (accounts.isEmpty) return const SizedBox.shrink();
+                  final activeAccountId = _selectedAccountId ?? accounts.first.id;
+                  return SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: accounts.length,
+                      itemBuilder: (ctx, idx) {
+                        final acc = accounts[idx];
+                        final isSelected = activeAccountId == acc.id;
+                        final accColor = Color(acc.colorValue);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() => _selectedAccountId = acc.id);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? accColor : AppColors.inputFill,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? accColor : AppColors.borderLight,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(acc.type.icon, size: 16, color: isSelected ? Colors.white : AppColors.primaryNavy),
+                                const SizedBox(width: 6),
+                                Text(
+                                  acc.name,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: isSelected ? Colors.white : AppColors.primaryNavy,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
 
           // Category Selection (Optional)
           Row(
@@ -641,6 +715,60 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
               ),
             ],
           ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Spend classification toggle (debit only) ──────────────
+          if (!_isCredit)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: _isCountedAsSpend
+                    ? AppColors.inputFill
+                    : AppColors.expenseRed.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                border: Border.all(
+                  color: _isCountedAsSpend
+                      ? AppColors.borderLight
+                      : AppColors.expenseRed.withOpacity(0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Count as spend',
+                          style: AppTextStyles.h3,
+                        ),
+                        Text(
+                          _isCountedAsSpend
+                              ? 'Included in budget & spend totals'
+                              : 'Excluded from budget & spend totals',
+                          style: AppTextStyles.caption.copyWith(
+                            color: _isCountedAsSpend
+                                ? AppColors.mutedText
+                                : AppColors.expenseRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isCountedAsSpend,
+                    onChanged: (val) => setState(() => _isCountedAsSpend = val),
+                    activeColor: AppColors.primaryNavy,
+                    inactiveThumbColor: AppColors.mutedText,
+                    inactiveTrackColor: AppColors.borderLight,
+                  ),
+                ],
+              ),
+            ),
 
           const SizedBox(height: AppSpacing.lg),
 

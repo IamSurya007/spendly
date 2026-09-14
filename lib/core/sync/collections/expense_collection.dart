@@ -15,7 +15,9 @@ class ExpenseCollection with SyncMetadataMixin {
   late String method;
   late String source;
   late String merchant;
+  late String accountId;
   late DateTime createdAt;
+  bool isCountedAsSpend = true;
 
   ExpenseCollection();
 
@@ -36,7 +38,9 @@ class ExpenseCollection with SyncMetadataMixin {
       ..method = expense.method
       ..source = expense.source
       ..merchant = expense.merchant
-      ..createdAt = expense.createdAt;
+      ..accountId = expense.accountId
+      ..createdAt = expense.createdAt
+      ..isCountedAsSpend = expense.isCountedAsSpend;
 
     col.clientId = expense.id;
     col.serverId = serverId;
@@ -59,7 +63,9 @@ class ExpenseCollection with SyncMetadataMixin {
       method: method,
       source: source,
       merchant: merchant,
+      accountId: accountId.isEmpty ? 'default_bank' : accountId,
       createdAt: createdAt,
+      isCountedAsSpend: isCountedAsSpend,
     );
   }
 
@@ -72,7 +78,9 @@ class ExpenseCollection with SyncMetadataMixin {
       'method': method.toUpperCase(), // backend enums: CASH, UPI, CARD, etc.
       'source': source.toUpperCase(), // backend enums: MANUAL, SMS, OCR
       'merchant': merchant,
+      'accountId': accountId,
       'createdAt': createdAt.toUtc().toIso8601String(),
+      'isCountedAsSpend': isCountedAsSpend,
     };
   }
 }

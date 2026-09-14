@@ -32,7 +32,7 @@ class AppBottomNav extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final slotWidth = constraints.maxWidth / 4;
+                final slotWidth = constraints.maxWidth / 5;
                 final pillLeft = currentIndex * slotWidth + 6;
                 final pillWidth = slotWidth - 12;
 
@@ -67,6 +67,7 @@ class AppBottomNav extends StatelessWidget {
                         _NavItem(icon: Icons.pie_chart_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
                         _NavItem(icon: Icons.handshake_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
                         _NavItem(icon: Icons.savings_rounded, index: 3, currentIndex: currentIndex, onTap: onTap),
+                        _NavItem(icon: Icons.person_rounded, index: 4, currentIndex: currentIndex, onTap: onTap),
                       ],
                     ),
                   ],

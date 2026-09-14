@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../repositories/i_account_repository.dart';
 import '../repositories/i_expense_repository.dart';
 import '../repositories/i_investment_repository.dart';
 import '../repositories/i_loan_repository.dart';
 import '../repositories/i_user_repository.dart';
+import '../repositories/isar_account_repository.dart';
 import '../repositories/isar_expense_repository.dart';
 import '../repositories/isar_loan_repository.dart';
 import '../repositories/isar_investment_repository.dart';
@@ -18,6 +20,10 @@ import '../sync/sync_api_client.dart';
 
 final syncApiClientProvider = Provider<SyncApiClient>((ref) {
   return SyncApiClient();
+});
+
+final accountRepositoryProvider = Provider<IAccountRepository>((ref) {
+  return IsarAccountRepository();
 });
 
 final expenseRepositoryProvider = Provider<IExpenseRepository>((ref) {
@@ -35,3 +41,4 @@ final investmentRepositoryProvider = Provider<IInvestmentRepository>((ref) {
 final userRepositoryProvider = Provider<IUserRepository>((ref) {
   return IsarUserRepository(ref.watch(syncApiClientProvider));
 });
+

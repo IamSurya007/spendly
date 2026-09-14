@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spendly/core/sync/conflict_resolver.dart';
-import 'package:spendly/core/sync/sync_metadata.dart';
-import 'package:spendly/core/sync/outbox_operation.dart';
 
 void main() {
   group('ConflictResolver Tests', () {

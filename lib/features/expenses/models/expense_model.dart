@@ -10,7 +10,12 @@ class Expense {
   final String method; // cash | upi | card
   final String source; // manual | sms | ocr
   final String merchant;
+  final String accountId;
   final DateTime createdAt;
+  /// Only applicable to debit (amount > 0) transactions.
+  /// When false, this transaction is excluded from spend totals & budget tracking.
+  /// Income (amount < 0) is always counted — this flag has no effect on credits.
+  final bool isCountedAsSpend;
 
   const Expense({
     required this.id,
@@ -21,7 +26,9 @@ class Expense {
     this.method = 'upi',
     this.source = 'manual',
     this.merchant = '',
+    this.accountId = 'default_bank',
     required this.createdAt,
+    this.isCountedAsSpend = true,
   });
 
   factory Expense.fromJson(Map<String, dynamic> json, String docId) {
@@ -34,7 +41,9 @@ class Expense {
       method: (json['method'] as String? ?? 'upi').toLowerCase(),
       source: (json['source'] as String? ?? 'manual').toLowerCase(),
       merchant: json['merchant'] as String? ?? '',
+      accountId: json['accountId'] as String? ?? 'default_bank',
       createdAt: (json['createdAt'] as Timestamp).toDate(),
+      isCountedAsSpend: json['isCountedAsSpend'] as bool? ?? true,
     );
   }
 
@@ -46,7 +55,9 @@ class Expense {
         'method': method,
         'source': source,
         'merchant': merchant,
+        'accountId': accountId,
         'createdAt': Timestamp.fromDate(createdAt),
+        'isCountedAsSpend': isCountedAsSpend,
       };
 
   Expense copyWith({
@@ -58,7 +69,9 @@ class Expense {
     String? method,
     String? source,
     String? merchant,
+    String? accountId,
     DateTime? createdAt,
+    bool? isCountedAsSpend,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -69,7 +82,9 @@ class Expense {
       method: method ?? this.method,
       source: source ?? this.source,
       merchant: merchant ?? this.merchant,
+      accountId: accountId ?? this.accountId,
       createdAt: createdAt ?? this.createdAt,
+      isCountedAsSpend: isCountedAsSpend ?? this.isCountedAsSpend,
     );
   }
 }

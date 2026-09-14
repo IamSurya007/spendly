@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 /// Horizontal row of quick-action chips on the Home screen.
 class QuickActions extends StatelessWidget {
   final VoidCallback onAddExpense;
+  final VoidCallback onAddCashSpend;
   final VoidCallback onAddLoan;
   final VoidCallback onAddInvestment;
   final VoidCallback onScanSms;
@@ -14,6 +15,7 @@ class QuickActions extends StatelessWidget {
   const QuickActions({
     super.key,
     required this.onAddExpense,
+    required this.onAddCashSpend,
     required this.onAddLoan,
     required this.onAddInvestment,
     required this.onScanSms,
@@ -31,6 +33,11 @@ class QuickActions extends StatelessWidget {
             icon: '➕',
             label: 'Add Expense',
             onTap: onAddExpense,
+          ),
+          _ActionChip(
+            icon: '💵',
+            label: 'Cash Spend',
+            onTap: onAddCashSpend,
           ),
           _ActionChip(
             icon: '💬',

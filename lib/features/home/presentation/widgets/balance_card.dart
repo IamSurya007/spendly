@@ -7,7 +7,8 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../expenses/services/expense_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// The large hero balance card showing current month net balance.
+/// Monthly money-flow card: Income received vs Spends made vs what's left.
+/// Replaces the old "Liquid Balance" card which showed an unreliable account sum.
 class BalanceCard extends ConsumerWidget {
   final User user;
 
@@ -15,74 +16,25 @@ class BalanceCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expensesAsync = ref.watch(expensesStreamProvider);
+    final income = ref.watch(monthlyIncomeProvider);
+    final spends = ref.watch(monthlyExpensesProvider);
+    final left = ref.watch(monthlyLeftProvider);
     final now = DateTime.now();
-
-    return expensesAsync.when(
-      data: (expenses) {
-        final thisMonth = expenses.where(
-          (e) => e.date.year == now.year && e.date.month == now.month,
-        );
-        final totalExpenses = thisMonth
-            .where((e) => e.amount > 0)
-            .fold(0.0, (sum, e) => sum + e.amount);
-        // For now, income is static (can be extended to income collection later)
-        const income = 65000.0;
-        final balance = income - totalExpenses;
-        final savings = balance;
-
-        return _CardContent(
-          income: income,
-          expenses: totalExpenses,
-          balance: balance,
-          savings: savings,
-          month: DateFormat('MMMM yyyy').format(now),
-        );
-      },
-      loading: () => _CardContent(
-        income: 0,
-        expenses: 0,
-        balance: 0,
-        savings: 0,
-        month: DateFormat('MMMM yyyy').format(now),
-        loading: true,
-      ),
-      error: (e, _) => const SizedBox.shrink(),
-    );
-  }
-}
-
-class _CardContent extends StatelessWidget {
-  final double income;
-  final double expenses;
-  final double balance;
-  final double savings;
-  final String month;
-  final bool loading;
-
-  const _CardContent({
-    required this.income,
-    required this.expenses,
-    required this.balance,
-    required this.savings,
-    required this.month,
-    this.loading = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+    final month = DateFormat('MMMM yyyy').format(now);
     final fmt = NumberFormat('#,##,###');
-    final isNegative = balance < 0;
+
+    final bool isSurplus = left >= 0;
+    final leftColor = isSurplus ? AppColors.incomeGreen : AppColors.expenseRed;
+    final leftLabel = isSurplus ? 'Remaining' : 'Over budget';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.primaryNavy,
         borderRadius: BorderRadius.circular(AppSpacing.largeRadius),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryNavy.withOpacity(0.25),
+            color: AppColors.primaryNavy.withOpacity(0.22),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -91,72 +43,136 @@ class _CardContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Month label
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                month,
-                style: AppTextStyles.label.copyWith(
-                  color: Colors.white.withOpacity(0.55),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Net Balance',
-                  style: AppTextStyles.caption.copyWith(
-                    color: Colors.white.withOpacity(0.7),
+          // ── Top: Month label + tag ──────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  month,
+                  style: AppTextStyles.label.copyWith(
+                    color: Colors.white.withOpacity(0.55),
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          // Big balance number
-          loading
-              ? Container(
-                  width: 160,
-                  height: 48,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                )
-              : Text(
-                  '${isNegative ? '-' : ''}₹${fmt.format(balance.abs())}',
-                  style: AppTextStyles.balanceLarge.copyWith(
-                    color: Colors.white,
-                    fontSize: 40,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bar_chart_rounded, size: 12, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        'This Month',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ],
+            ),
+          ),
+
+          // ── Income (hero figure) ────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: AppColors.incomeGreen.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.arrow_downward_rounded,
+                              size: 13,
+                              color: AppColors.incomeGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Income',
+                            style: AppTextStyles.caption.copyWith(
+                              color: Colors.white.withOpacity(0.65),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        income > 0 ? '₹${fmt.format(income)}' : '₹0',
+                        style: AppTextStyles.balanceLarge.copyWith(
+                          color: Colors.white,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: AppSpacing.lg),
-          // Income · Expenses · Savings row
-          Row(
-            children: [
-              _Stat(
-                label: 'Income',
-                value: '₹${fmt.format(income)}',
-                color: AppColors.incomeGreen,
-              ),
-              _Divider(),
-              _Stat(
-                label: 'Expenses',
-                value: '₹${fmt.format(expenses)}',
-                color: AppColors.expenseRed,
-              ),
-              _Divider(),
-              _Stat(
-                label: 'Savings',
-                value: '₹${fmt.format(savings.abs())}',
-                color: savings >= 0 ? AppColors.incomeGreen : AppColors.expenseRed,
-              ),
-            ],
+
+          // ── Spends + Remaining bottom row ───────────────────────────
+          Container(
+            margin: const EdgeInsets.fromLTRB(
+              AppSpacing.md, 0, AppSpacing.md, AppSpacing.md,
+            ),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                _FlowStat(
+                  label: 'Spends',
+                  value: '₹${fmt.format(spends)}',
+                  valueColor: spends > 0 ? AppColors.expenseRed : Colors.white,
+                  icon: Icons.arrow_upward_rounded,
+                  iconBg: AppColors.expenseRed.withOpacity(0.18),
+                  iconColor: AppColors.expenseRed,
+                ),
+                Container(
+                  width: 1,
+                  height: 36,
+                  color: Colors.white.withOpacity(0.15),
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                _FlowStat(
+                  label: leftLabel,
+                  value: '₹${fmt.format(left.abs())}',
+                  valueColor: leftColor,
+                  icon: isSurplus
+                      ? Icons.savings_rounded
+                      : Icons.warning_amber_rounded,
+                  iconBg: leftColor.withOpacity(0.18),
+                  iconColor: leftColor,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -164,48 +180,65 @@ class _CardContent extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
+class _FlowStat extends StatelessWidget {
   final String label;
   final String value;
-  final Color color;
+  final Color valueColor;
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
 
-  const _Stat({
+  const _FlowStat({
     required this.label,
     required this.value,
-    required this.color,
+    required this.valueColor,
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: Colors.white.withOpacity(0.5),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Icon(icon, size: 15, color: iconColor),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTextStyles.h3.copyWith(color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTextStyles.caption.copyWith(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: AppTextStyles.h3.copyWith(
+                    color: valueColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 0.5,
-      height: 32,
-      color: Colors.white.withOpacity(0.15),
-      margin: const EdgeInsets.symmetric(horizontal: 12),
     );
   }
 }

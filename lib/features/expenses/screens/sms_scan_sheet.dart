@@ -6,6 +6,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/services/sms_parser_service.dart';
+import '../../../core/services/sms_account_resolver.dart';
+import '../../accounts/models/account_model.dart';
 import '../models/expense_model.dart';
 import '../services/expense_providers.dart';
 import '../../../core/providers/repository_providers.dart';
@@ -47,7 +49,7 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
       return;
     }
 
-    final parsedList = await _smsService.scanInbox(limit: 100);
+    final parsedList = await _smsService.scanInbox(limit: 500);
     
     // Filter out already imported transactions
     final existingExpenses = ref.read(expensesStreamProvider).valueOrNull ?? [];
@@ -69,93 +71,95 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
     if (mounted) {
       setState(() {
         _detectedTransactions = uniqueParsedList;
-        // Select all by default
         _selectedIndices = Set.from(List.generate(uniqueParsedList.length, (i) => i));
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _importSelected() async {
+  void _importSelected() {
     if (_selectedIndices.isEmpty) return;
 
-    setState(() => _isLoading = true);
+    final selectedTxns = _selectedIndices.map((i) => _detectedTransactions[i]).toList();
+    final count = selectedTxns.length;
 
-    final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
-    final expenseRepo = ref.read(expenseRepositoryProvider);
-    int count = 0;
+    // Close modal immediately so UI response is instant (<10ms)
+    Navigator.pop(context);
 
-    for (final index in _selectedIndices) {
-      final txn = _detectedTransactions[index];
-      
-      // 1. Check custom user rules first
-      String? ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
-      
-      // 2. Fall back to smart heuristics mapping to new category names
-      String guessedCategory = ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other');
-      if (ruleCategory == null) {
-        final cleanMerchant = txn.merchant.toLowerCase();
-        if (cleanMerchant.contains('rent')) {
-          guessedCategory = 'Rent';
-        } else if (cleanMerchant.contains('swiggy') || cleanMerchant.contains('zomato') || cleanMerchant.contains('dining') || cleanMerchant.contains('restaurant') || cleanMerchant.contains('eats')) {
-          guessedCategory = 'Restaurants';
-        } else if (cleanMerchant.contains('grocer') || cleanMerchant.contains('jiomart') || cleanMerchant.contains('blinkit') || cleanMerchant.contains('bigbasket')) {
-          guessedCategory = 'Groceries';
-        } else if (cleanMerchant.contains('coffee') || cleanMerchant.contains('starbucks') || cleanMerchant.contains('chai')) {
-          guessedCategory = 'Coffee & Snacks';
-        } else if (cleanMerchant.contains('electricity') || cleanMerchant.contains('power')) {
-          guessedCategory = 'Electricity';
-        } else if (cleanMerchant.contains('water')) {
-          guessedCategory = 'Water Bill';
-        } else if (cleanMerchant.contains('gas') || cleanMerchant.contains('indane') || cleanMerchant.contains('hp')) {
-          guessedCategory = 'Gas';
-        } else if (cleanMerchant.contains('wifi') || cleanMerchant.contains('internet') || cleanMerchant.contains('actfibernet') || cleanMerchant.contains('broadband')) {
-          guessedCategory = 'Internet';
-        } else if (cleanMerchant.contains('ola') || cleanMerchant.contains('uber') || cleanMerchant.contains('cab') || cleanMerchant.contains('auto')) {
-          guessedCategory = 'Auto / Cab';
-        } else if (cleanMerchant.contains('metro') || cleanMerchant.contains('bus') || cleanMerchant.contains('train') || cleanMerchant.contains('irctc')) {
-          guessedCategory = 'Public Transport';
-        } else if (cleanMerchant.contains('fuel') || cleanMerchant.contains('petrol') || cleanMerchant.contains('shell') || cleanMerchant.contains('iocl') || cleanMerchant.contains('hpcl')) {
-          guessedCategory = 'Fuel';
-        } else if (cleanMerchant.contains('cc bill') || cleanMerchant.contains('credit card') || cleanMerchant.contains('card bill')) {
-          guessedCategory = 'CC Bill';
-        } else if (cleanMerchant.contains('splitwise')) {
-          guessedCategory = 'Splitwise';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Imported $count transaction${count > 1 ? "s" : ""} from SMS!'),
+        backgroundColor: AppColors.incomeGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+
+    // Process database writes & account auto-creations asynchronously in background
+    Future.microtask(() async {
+      final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
+      final expenseRepo = ref.read(expenseRepositoryProvider);
+      final accountRepo = ref.read(accountRepositoryProvider);
+      final resolver = SmsAccountResolver(accountRepo);
+
+      for (final txn in selectedTxns) {
+        final accountId = await resolver.resolveAccountId(txn);
+        String? ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
+        
+        String guessedCategory = ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other');
+        if (ruleCategory == null) {
+          final cleanMerchant = txn.merchant.toLowerCase();
+          if (cleanMerchant.contains('rent')) {
+            guessedCategory = 'Rent';
+          } else if (cleanMerchant.contains('swiggy') || cleanMerchant.contains('zomato') || cleanMerchant.contains('dining') || cleanMerchant.contains('restaurant') || cleanMerchant.contains('eats')) {
+            guessedCategory = 'Restaurants';
+          } else if (cleanMerchant.contains('grocer') || cleanMerchant.contains('jiomart') || cleanMerchant.contains('blinkit') || cleanMerchant.contains('bigbasket')) {
+            guessedCategory = 'Groceries';
+          } else if (cleanMerchant.contains('coffee') || cleanMerchant.contains('starbucks') || cleanMerchant.contains('chai')) {
+            guessedCategory = 'Coffee & Snacks';
+          } else if (cleanMerchant.contains('electricity') || cleanMerchant.contains('power')) {
+            guessedCategory = 'Electricity';
+          } else if (cleanMerchant.contains('water')) {
+            guessedCategory = 'Water Bill';
+          } else if (cleanMerchant.contains('gas') || cleanMerchant.contains('indane') || cleanMerchant.contains('hp')) {
+            guessedCategory = 'Gas';
+          } else if (cleanMerchant.contains('wifi') || cleanMerchant.contains('internet') || cleanMerchant.contains('actfibernet') || cleanMerchant.contains('broadband')) {
+            guessedCategory = 'Internet';
+          } else if (cleanMerchant.contains('ola') || cleanMerchant.contains('uber') || cleanMerchant.contains('cab') || cleanMerchant.contains('auto')) {
+            guessedCategory = 'Auto / Cab';
+          } else if (cleanMerchant.contains('metro') || cleanMerchant.contains('bus') || cleanMerchant.contains('train') || cleanMerchant.contains('irctc')) {
+            guessedCategory = 'Public Transport';
+          } else if (cleanMerchant.contains('fuel') || cleanMerchant.contains('petrol') || cleanMerchant.contains('shell') || cleanMerchant.contains('iocl') || cleanMerchant.contains('hpcl')) {
+            guessedCategory = 'Fuel';
+          } else if (cleanMerchant.contains('cc bill') || cleanMerchant.contains('credit card') || cleanMerchant.contains('card bill')) {
+            guessedCategory = 'CC Bill';
+          } else if (cleanMerchant.contains('splitwise')) {
+            guessedCategory = 'Splitwise';
+          }
         }
+
+        final txnId = const Uuid().v5(
+          Uuid.NAMESPACE_URL,
+          'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+        );
+
+        final expense = Expense(
+          id: txnId,
+          amount: txn.isDebit ? txn.amount : -txn.amount,
+          category: guessedCategory,
+          note: 'Imported from SMS: "${txn.body.length > 30 ? '${txn.body.substring(0, 30)}...' : txn.body}"',
+          date: txn.date,
+          method: txn.accountType == AccountType.credit_card ? 'card' : (txn.accountType == AccountType.cash ? 'cash' : 'upi'),
+          source: 'sms',
+          merchant: txn.merchant,
+          accountId: accountId,
+          createdAt: DateTime.now(),
+        );
+
+        await expenseNotifier.addExpense(expense);
       }
-
-      final txnId = const Uuid().v5(
-        Uuid.NAMESPACE_URL,
-        'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
-      );
-
-      final expense = Expense(
-        id: txnId,
-        amount: txn.isDebit ? txn.amount : -txn.amount,
-        category: guessedCategory,
-        note: 'Imported from SMS: "${txn.body.length > 30 ? '${txn.body.substring(0, 30)}...' : txn.body}"',
-        date: txn.date,
-        method: 'upi',
-        source: 'sms',
-        merchant: txn.merchant,
-        createdAt: DateTime.now(),
-      );
-
-      await expenseNotifier.addExpense(expense);
-      count++;
-    }
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully imported $count transactions from SMS!'),
-          backgroundColor: AppColors.incomeGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
+    });
   }
 
   @override
@@ -368,10 +372,15 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      txn.account,
-                      style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Text(
+                        txn.account,
+                        style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       DateFormat('d MMM yyyy, h:mm a').format(txn.date),
                       style: AppTextStyles.caption,

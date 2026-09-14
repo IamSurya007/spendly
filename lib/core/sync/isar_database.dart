@@ -1,6 +1,7 @@
 import 'package:isar_plus/isar_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'collections/account_collection.dart';
 import 'collections/conflict_record.dart';
 import 'collections/expense_collection.dart';
 import 'collections/loan_collection.dart';
@@ -28,6 +29,7 @@ class IsarDatabase {
     if (_instance != null) return;
 
     final schemas = [
+      AccountCollectionSchema,
       ExpenseCollectionSchema,
       LoanCollectionSchema,
       InvestmentCollectionSchema,

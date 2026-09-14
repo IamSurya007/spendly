@@ -3,6 +3,8 @@ import 'package:spendly/core/sync/outbox_operation.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:spendly/features/expenses/models/expense_model.dart';
+import 'package:spendly/features/accounts/models/account_model.dart';
+import 'package:spendly/core/sync/collections/account_collection.dart';
 import 'package:spendly/core/sync/collections/expense_collection.dart';
 import 'package:spendly/core/sync/collections/budget_collection.dart';
 import 'package:spendly/core/sync/collections/category_rule_collection.dart';
@@ -52,6 +54,20 @@ class IsarExpenseRepository implements IExpenseRepository {
         operationType: 'create',
         payload: col.toSyncJson(),
       );
+
+      // Reconcile account balance
+      final accCol = isar.accountCollections
+          .where()
+          .clientIdEqualTo(expense.accountId)
+          .findFirst();
+      if (accCol != null) {
+        final isCredit = accCol.type == AccountType.credit_card.name;
+        final delta = isCredit ? expense.amount : -expense.amount;
+        accCol.currentBalance += delta;
+        accCol.version++;
+        accCol.dirty = true;
+        isar.accountCollections.put(accCol);
+      }
     });
 
     // Trigger sync in background
@@ -67,6 +83,37 @@ class IsarExpenseRepository implements IExpenseRepository {
           .findFirst();
 
       if (existing != null) {
+        final oldAccountId = existing.accountId.isEmpty ? 'default_bank' : existing.accountId;
+        final oldAmount = existing.amount;
+
+        // 1. Reverse old expense effect on old account
+        final oldAccCol = isar.accountCollections
+            .where()
+            .clientIdEqualTo(oldAccountId)
+            .findFirst();
+        if (oldAccCol != null) {
+          final oldIsCredit = oldAccCol.type == AccountType.credit_card.name;
+          final reverseDelta = oldIsCredit ? -oldAmount : oldAmount;
+          oldAccCol.currentBalance += reverseDelta;
+          oldAccCol.version++;
+          oldAccCol.dirty = true;
+          isar.accountCollections.put(oldAccCol);
+        }
+
+        // 2. Apply new expense effect on new account
+        final newAccCol = isar.accountCollections
+            .where()
+            .clientIdEqualTo(expense.accountId)
+            .findFirst();
+        if (newAccCol != null) {
+          final newIsCredit = newAccCol.type == AccountType.credit_card.name;
+          final applyDelta = newIsCredit ? expense.amount : -expense.amount;
+          newAccCol.currentBalance += applyDelta;
+          newAccCol.version++;
+          newAccCol.dirty = true;
+          isar.accountCollections.put(newAccCol);
+        }
+
         final col = ExpenseCollection.fromDomain(
           expense,
           serverId: existing.serverId,
@@ -99,6 +146,23 @@ class IsarExpenseRepository implements IExpenseRepository {
           .findFirst();
 
       if (existing != null) {
+        final oldAccountId = existing.accountId.isEmpty ? 'default_bank' : existing.accountId;
+        final oldAmount = existing.amount;
+
+        // Reverse expense effect on account balance
+        final oldAccCol = isar.accountCollections
+            .where()
+            .clientIdEqualTo(oldAccountId)
+            .findFirst();
+        if (oldAccCol != null) {
+          final oldIsCredit = oldAccCol.type == AccountType.credit_card.name;
+          final reverseDelta = oldIsCredit ? -oldAmount : oldAmount;
+          oldAccCol.currentBalance += reverseDelta;
+          oldAccCol.version++;
+          oldAccCol.dirty = true;
+          isar.accountCollections.put(oldAccCol);
+        }
+
         if (existing.serverId == null) {
           // Hard delete local-only records
           isar.expenseCollections.delete(existing.id);
