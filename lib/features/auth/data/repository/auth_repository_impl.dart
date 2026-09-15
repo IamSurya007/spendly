@@ -13,6 +13,7 @@ class AuthRepositoryImpl implements AuthRepository {
       _googleSignIn =
           googleSignIn ??
           GoogleSignIn(
+            scopes: ['email', 'profile'],
             // Web client ID (client_type: 3) from google-services.json.
             // Required on Android to generate an idToken for Firebase Auth.
             serverClientId:
@@ -59,7 +60,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    await _googleSignIn.disconnect();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
     await _firebaseAuth.signOut();
   }
 }
