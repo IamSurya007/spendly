@@ -10,7 +10,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   AuthRepositoryImpl({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-      _googleSignIn = googleSignIn ?? GoogleSignIn();
+      _googleSignIn =
+          googleSignIn ??
+          GoogleSignIn(
+            // Web client ID (client_type: 3) from google-services.json.
+            // Required on Android to generate an idToken for Firebase Auth.
+            serverClientId:
+                '871767466070-q7l9tohvnuqkn5v55ll06qo9c0r6uf94.apps.googleusercontent.com',
+          );
 
   @override
   Future<UserCredential> signInWithGoogle() async {
