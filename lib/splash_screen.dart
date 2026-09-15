@@ -117,7 +117,7 @@ class _SplashScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'SPENDLY',
+              'FISCORA',
               style: TextStyle(
                 color: Color(0xFFF5C518),
                 fontSize: 13,

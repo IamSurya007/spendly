@@ -22,18 +22,18 @@ void main() async {
       statusBarBrightness: Brightness.light,
     ),
   );
-  runApp(const ProviderScope(child: SpendlyApp()));
+  runApp(const ProviderScope(child: FiscoraApp()));
 }
 
-class SpendlyApp extends StatelessWidget {
-  const SpendlyApp({super.key});
+class FiscoraApp extends StatelessWidget {
+  const FiscoraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     // Inter is declared as a bundled asset font in pubspec.yaml —
     // no network call required, works fully offline.
     return MaterialApp(
-      title: 'Spendly',
+      title: 'Fiscora',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

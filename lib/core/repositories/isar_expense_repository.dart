@@ -1,17 +1,17 @@
 import 'package:isar_plus/isar_plus.dart';
-import 'package:spendly/core/sync/outbox_operation.dart';
+import 'package:fiscora/core/sync/outbox_operation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:spendly/features/expenses/models/expense_model.dart';
-import 'package:spendly/features/accounts/models/account_model.dart';
-import 'package:spendly/core/sync/collections/account_collection.dart';
-import 'package:spendly/core/sync/collections/expense_collection.dart';
-import 'package:spendly/core/sync/collections/budget_collection.dart';
-import 'package:spendly/core/sync/collections/category_rule_collection.dart';
-import 'package:spendly/core/sync/isar_database.dart';
-import 'package:spendly/core/sync/sync_engine.dart';
-import 'package:spendly/core/sync/sync_metadata.dart';
-import 'package:spendly/core/repositories/i_expense_repository.dart';
+import 'package:fiscora/features/expenses/models/expense_model.dart';
+import 'package:fiscora/features/accounts/models/account_model.dart';
+import 'package:fiscora/core/sync/collections/account_collection.dart';
+import 'package:fiscora/core/sync/collections/expense_collection.dart';
+import 'package:fiscora/core/sync/collections/budget_collection.dart';
+import 'package:fiscora/core/sync/collections/category_rule_collection.dart';
+import 'package:fiscora/core/sync/isar_database.dart';
+import 'package:fiscora/core/sync/sync_engine.dart';
+import 'package:fiscora/core/sync/sync_metadata.dart';
+import 'package:fiscora/core/repositories/i_expense_repository.dart';
 
 class IsarExpenseRepository implements IExpenseRepository {
   Isar get _isar => IsarDatabase.instance.isar;

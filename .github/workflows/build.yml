@@ -61,13 +61,13 @@ jobs:
       - name: Rename APK with version
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/spendly-v${{ steps.version.outputs.version }}.apk
+             build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
 
       - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: spendly-v${{ steps.version.outputs.version }}
-          path: build/app/outputs/flutter-apk/spendly-v${{ steps.version.outputs.version }}.apk
+          name: fiscora-v${{ steps.version.outputs.version }}
+          path: build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -75,10 +75,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: "Spendly v${{ steps.version.outputs.version }}"
+          name: "Fiscora v${{ steps.version.outputs.version }}"
           generate_release_notes: true
           make_latest: true
-          files: build/app/outputs/flutter-apk/spendly-v${{ steps.version.outputs.version }}.apk
+          files: build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
 
 #  build-ios:
 #    name: Build iOS App

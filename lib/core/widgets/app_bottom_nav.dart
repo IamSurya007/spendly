@@ -6,7 +6,7 @@ import '../constants/app_colors.dart';
 /// NAV BAR AUDIT & MAP (PHASE 01 — ITEM 2)
 /// -----------------------------------------------------------------------------
 /// REASONING & DECISION DOC:
-/// With Spendly shifting toward an Axio/Fold account-centric structure:
+/// With Fiscora shifting toward an Axio/Fold account-centric structure:
 /// 1. Accounts & Transactions represent core daily usage, while Budget tracking
 ///    is a secondary planning feature rather than a primary navigation destination.
 /// 2. Having Budget in the primary nav bar occupied prime screen real estate and

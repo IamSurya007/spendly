@@ -1,9 +1,9 @@
 import 'package:isar_plus/isar_plus.dart';
-import 'package:spendly/core/models/user_profile.dart';
-import 'package:spendly/core/repositories/i_user_repository.dart';
-import 'package:spendly/core/sync/collections/user_profile_collection.dart';
-import 'package:spendly/core/sync/isar_database.dart';
-import 'package:spendly/core/sync/sync_api_client.dart';
+import 'package:fiscora/core/models/user_profile.dart';
+import 'package:fiscora/core/repositories/i_user_repository.dart';
+import 'package:fiscora/core/sync/collections/user_profile_collection.dart';
+import 'package:fiscora/core/sync/isar_database.dart';
+import 'package:fiscora/core/sync/sync_api_client.dart';
 
 class IsarUserRepository implements IUserRepository {
   final SyncApiClient _apiClient;

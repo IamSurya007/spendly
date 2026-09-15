@@ -186,7 +186,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
     final txnId = const Uuid().v5(
       Namespace.url.value,
-      'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+      'fiscora:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
     );
 
     final expense = Expense(

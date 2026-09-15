@@ -341,7 +341,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               child: _MenuItem(
                 icon: Icons.info_outline_rounded,
-                label: 'About Spendly',
+                label: 'About Fiscora',
                 sublabel: 'v1.0.0',
                 onTap: () {},
               ),

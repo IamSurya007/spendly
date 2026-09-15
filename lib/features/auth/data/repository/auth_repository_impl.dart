@@ -36,7 +36,7 @@ class AuthRepositoryImpl implements AuthRepository {
         AppleIDAuthorizationScopes.fullName,
       ],
       webAuthenticationOptions: WebAuthenticationOptions(
-        clientId: 'com.surya.spendly',
+        clientId: 'com.surya.fiscora',
         redirectUri: Uri.parse(
           'https://spendly-1c600.firebaseapp.com/__/auth/handler',
         ),

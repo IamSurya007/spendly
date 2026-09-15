@@ -61,7 +61,7 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
     for (final txn in parsedList) {
       final txnId = uuid.v5(
         Uuid.NAMESPACE_URL,
-        'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+        'fiscora:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
       );
       if (!existingIds.contains(txnId)) {
         uniqueParsedList.add(txn);
@@ -141,7 +141,7 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
 
         final txnId = const Uuid().v5(
           Uuid.NAMESPACE_URL,
-          'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+          'fiscora:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
         );
 
         final expense = Expense(
@@ -267,7 +267,7 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
             Text('SMS Permission Required', style: AppTextStyles.h2),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Spendly needs SMS permission to auto-detect and sync your bank transaction history.',
+              'Fiscora needs SMS permission to auto-detect and sync your bank transaction history.',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(color: AppColors.mutedText),
             ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Spendly locked color palette — do not modify tokens, only add semantic aliases.
+/// Fiscora locked color palette — do not modify tokens, only add semantic aliases.
 class AppColors {
   AppColors._();
 

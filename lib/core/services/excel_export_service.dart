@@ -25,7 +25,7 @@ class ExcelExportService {
 
     final Sheet expensesSheet = excel['Expenses'];
 
-    // Header cells styling matching Spendly primary aesthetic (Navy Blue background, white bold text)
+    // Header cells styling matching Fiscora primary aesthetic (Navy Blue background, white bold text)
     final headerStyle = CellStyle(
       backgroundColorHex: ExcelColor.fromHexString('#1B263B'),
       fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
@@ -203,15 +203,15 @@ class ExcelExportService {
     // Write to a temporary file
     final tempDir = await getTemporaryDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final filePath = '${tempDir.path}/Spendly_Export_$timestamp.xlsx';
+    final filePath = '${tempDir.path}/Fiscora_Export_$timestamp.xlsx';
     final file = File(filePath);
     await file.writeAsBytes(fileBytes, flush: true);
 
     // Share the file
     await Share.shareXFiles(
       [XFile(filePath, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
-      subject: 'Spendly Financial Export',
-      text: 'Here is your Spendly financial export covering expenses, loans, and investments.',
+      subject: 'Fiscora Financial Export',
+      text: 'Here is your Fiscora Financial Export covering expenses, loans, and investments.',
     );
   }
 }

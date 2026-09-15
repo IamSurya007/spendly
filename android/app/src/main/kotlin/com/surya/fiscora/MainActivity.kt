@@ -1,4 +1,4 @@
-package com.example.spendly
+package com.surya.fiscora
 
 import android.content.Context
 import android.content.Intent
@@ -9,7 +9,7 @@ import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.example.spendly/sms_channel"
+    private val CHANNEL = "com.surya.fiscora/sms_channel"
     private var pendingIntentTransaction: HashMap<String, Any>? = null
 
     companion object {
@@ -19,7 +19,7 @@ class MainActivity : FlutterActivity() {
             instance?.let { activity ->
                 activity.runOnUiThread {
                     activity.flutterEngine?.let { engine ->
-                        MethodChannel(engine.dartExecutor.binaryMessenger, "com.example.spendly/sms_channel")
+                        MethodChannel(engine.dartExecutor.binaryMessenger, "com.surya.fiscora/sms_channel")
                             .invokeMethod("onTransactionCaptured", txnMap)
                     }
                 }
@@ -97,7 +97,7 @@ class MainActivity : FlutterActivity() {
         val resultList = ArrayList<HashMap<String, Any>>()
 
         // 1. Read from SharedPreferences
-        val prefs = getSharedPreferences("spendly_sms_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("fiscora_sms_prefs", Context.MODE_PRIVATE)
         val jsonStr = prefs.getString("pending_transactions", "[]") ?: "[]"
         try {
             val jsonArray = JSONArray(jsonStr)
@@ -136,7 +136,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun clearPendingTransactions() {
-        val prefs = getSharedPreferences("spendly_sms_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("fiscora_sms_prefs", Context.MODE_PRIVATE)
         prefs.edit().remove("pending_transactions").apply()
         pendingIntentTransaction = null
     }

@@ -1,4 +1,4 @@
-package com.example.spendly
+package com.surya.fiscora
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -207,7 +207,7 @@ class SmsReceiver : BroadcastReceiver() {
 
         // 1. Save to SharedPreferences so it persists natively for auto-saving
         try {
-            val prefs = context.getSharedPreferences("spendly_sms_prefs", Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences("fiscora_sms_prefs", Context.MODE_PRIVATE)
             val existingJson = prefs.getString("pending_transactions", "[]") ?: "[]"
             val jsonArray = JSONArray(existingJson)
 
@@ -234,7 +234,7 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, txn: ParsedTxn, sender: String) {
-        val channelId = "spendly_sms_capture"
+        val channelId = "fiscora_sms_capture"
         val notificationId = System.currentTimeMillis().toInt()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -242,7 +242,7 @@ class SmsReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Spendly Auto-Capture",
+                "Fiscora Auto-Capture",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alerts for incoming transaction SMS"
@@ -277,7 +277,7 @@ class SmsReceiver : BroadcastReceiver() {
         val direction = if (txn.isDebit) "debited" else "credited"
         val message = String.format(
             Locale.ROOT,
-            "₹%.2f %s at %s. Saved to Spendly.",
+            "₹%.2f %s at %s. Saved to Fiscora.",
             txn.amount,
             direction,
             txn.merchant

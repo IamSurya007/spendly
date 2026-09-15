@@ -44,7 +44,7 @@ class ParsedSms {
 /// Service to handle SMS permissions, scanning local SMS inbox, and
 /// listening to real-time auto-capture intents from the native BroadcastReceiver.
 class SmsParserService {
-  static const _channel = MethodChannel('com.example.spendly/sms_channel');
+  static const _channel = MethodChannel('com.surya.fiscora/sms_channel');
   final SmsQuery _query = SmsQuery();
 
   /// Requests SMS and Notification permissions on Android.

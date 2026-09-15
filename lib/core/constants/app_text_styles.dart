@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// Spendly typography system — uses the locally bundled Inter font.
+/// Fiscora typography system — uses the locally bundled Inter font.
 /// Zero network calls. Works fully offline.
 /// Font weights declared in pubspec.yaml: 300 / 400 / 500 / 600 / 700 / 800.
 class AppTextStyles {

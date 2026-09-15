@@ -25,7 +25,7 @@ class IsarDatabase {
     return _instance!;
   }
 
-  static Future<void> init({String? directory, String name = 'spendly'}) async {
+  static Future<void> init({String? directory, String name = 'fiscora'}) async {
     if (_instance != null) return;
 
     final schemas = [

@@ -1,4 +1,4 @@
-/// Spendly spacing constants — use these instead of raw doubles.
+/// Fiscora spacing constants — use these instead of raw doubles.
 class AppSpacing {
   AppSpacing._();
 
