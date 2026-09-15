@@ -27,6 +27,15 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
 
+      - name: Print keystore SHA-1 (for Firebase Console registration)
+        run: |
+          echo "=== KEYSTORE FINGERPRINTS (add SHA-1 to Firebase Console) ==="
+          keytool -list -v \
+            -keystore android/app/upload-keystore.jks \
+            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            2>/dev/null | grep -E "SHA1|SHA256"
+          echo "=== END FINGERPRINTS ==="
+
       - name: Create key.properties
         run: |
           cat <<EOF > android/key.properties
