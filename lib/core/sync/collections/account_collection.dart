@@ -75,11 +75,17 @@ class AccountCollection with SyncMetadataMixin {
       'type': type,
       'institution': institution,
       'currentBalance': currentBalance,
+      'current_balance': currentBalance,
       'creditLimit': creditLimit,
+      'credit_limit': creditLimit,
       'colorValue': colorValue,
+      'color_value': colorValue,
       'iconName': iconName,
+      'icon_name': iconName,
       'isArchived': isArchived,
+      'is_archived': isArchived,
       'createdAt': createdAt.toUtc().toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
     };
   }
 }

@@ -7,12 +7,14 @@ import 'package:isar_plus/isar_plus.dart';
 import '../../features/expenses/models/expense_model.dart';
 import '../../features/investments/models/investment_model.dart';
 import '../../features/loans/models/loan_model.dart';
+import '../../features/accounts/models/account_model.dart';
 import 'package:fiscora/core/sync/collections/conflict_record.dart';
 import 'package:fiscora/core/sync/collections/expense_collection.dart';
 import 'package:fiscora/core/sync/collections/loan_collection.dart';
 import 'package:fiscora/core/sync/collections/investment_collection.dart';
 import 'package:fiscora/core/sync/collections/budget_collection.dart';
 import 'package:fiscora/core/sync/collections/category_rule_collection.dart';
+import 'package:fiscora/core/sync/collections/account_collection.dart';
 import 'package:fiscora/core/sync/conflict_resolver.dart';
 import 'package:fiscora/core/sync/isar_database.dart';
 import 'package:fiscora/core/sync/outbox_operation.dart';
@@ -257,7 +259,7 @@ class SyncEngine {
 
   // Pull all entities from server
   Future<int> pullAllEntities({bool force = false}) async {
-    final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule'];
+    final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule', 'account'];
     int totalPulled = 0;
     for (final entity in entities) {
       totalPulled += await pullEntity(entity, force: force);
@@ -362,6 +364,14 @@ class SyncEngine {
         local.syncStatus = SyncStatus.synced.name;
         isar.categoryRuleCollections.put(local);
       }
+    } else if (entityType == 'account') {
+      final local = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (local != null) {
+        local.isDeleted = true;
+        local.dirty = false;
+        local.syncStatus = SyncStatus.synced.name;
+        isar.accountCollections.put(local);
+      }
     }
   }
 
@@ -428,7 +438,7 @@ class SyncEngine {
       if (res.action == ConflictResolution.useRemote) {
         final converted = _convertRestJsonToFirestoreJson(remotePayload, ['date', 'createdAt']);
         final updatedCol = ExpenseCollection.fromDomain(
-          Expense.fromJson(converted, clientId),
+          Expense.fromJson(converted, clientId, defaultIsCountedAsSpend: local.isCountedAsSpend),
           serverId: serverId,
           serverUpdatedAt: remoteUpdatedAt,
           syncStatus: SyncStatus.synced,
@@ -664,6 +674,59 @@ class SyncEngine {
         local.syncStatus = SyncStatus.conflict.name;
         isar.categoryRuleCollections.put(local);
       }
+    } else if (entityType == 'account') {
+      final local = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (local == null) {
+        if (!remoteIsDeleted) {
+          final converted = _convertRestJsonToFirestoreJson(remotePayload, ['createdAt']);
+          final newId = isar.accountCollections.autoIncrement();
+          final newCol = AccountCollection.fromDomain(
+            Account.fromJson(converted, clientId),
+            serverId: serverId,
+            serverUpdatedAt: remoteUpdatedAt,
+            syncStatus: SyncStatus.synced,
+            version: remoteVersion,
+            dirty: false,
+          )..id = newId;
+          isar.accountCollections.put(newCol);
+        }
+        return;
+      }
+
+      final res = ConflictResolver.resolve(
+        entityType: entityType,
+        localIsDirty: local.dirty,
+        localVersion: local.version,
+        localUpdatedAt: local.updatedAt,
+        localIsDeleted: local.isDeleted,
+        remoteVersion: remoteVersion,
+        remoteUpdatedAt: remoteUpdatedAt,
+        remoteIsDeleted: remoteIsDeleted,
+        localPayload: local.toSyncJson(),
+        remotePayload: remotePayload,
+      );
+
+      if (res.action == ConflictResolution.useRemote) {
+        final converted = _convertRestJsonToFirestoreJson(remotePayload, ['createdAt']);
+        final updatedCol = AccountCollection.fromDomain(
+          Account.fromJson(converted, clientId),
+          serverId: serverId,
+          serverUpdatedAt: remoteUpdatedAt,
+          syncStatus: SyncStatus.synced,
+          version: remoteVersion,
+          dirty: false,
+        )..id = local.id;
+        isar.accountCollections.put(updatedCol);
+      } else if (res.action == ConflictResolution.delete) {
+        local.isDeleted = true;
+        local.dirty = false;
+        local.syncStatus = SyncStatus.synced.name;
+        isar.accountCollections.put(local);
+      } else if (res.action == ConflictResolution.conflict) {
+        _saveConflictRecord(entityType, clientId, local.toSyncJson(), remotePayload);
+        local.syncStatus = SyncStatus.conflict.name;
+        isar.accountCollections.put(local);
+      }
     }
   }
 
@@ -701,6 +764,9 @@ class SyncEngine {
       return res?.version ?? 1;
     } else if (entityType == 'category_rule') {
       final res = isar.categoryRuleCollections.where().clientIdEqualTo(clientId).findFirst();
+      return res?.version ?? 1;
+    } else if (entityType == 'account') {
+      final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
       return res?.version ?? 1;
     }
     return 1;
@@ -763,6 +829,16 @@ class SyncEngine {
         res.syncStatus = SyncStatus.synced.name;
         res.dirty = false;
         isar.categoryRuleCollections.put(res);
+      }
+    } else if (entityType == 'account') {
+      final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.serverId = serverId;
+        res.version = serverVersion;
+        res.serverUpdatedAt = serverUpdatedAt;
+        res.syncStatus = SyncStatus.synced.name;
+        res.dirty = false;
+        isar.accountCollections.put(res);
       }
     }
   }

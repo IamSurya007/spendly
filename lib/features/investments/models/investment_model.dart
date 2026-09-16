@@ -26,16 +26,29 @@ class Investment {
   });
 
   factory Investment.fromJson(Map<String, dynamic> json, String docId) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.now();
+    }
+
     return Investment(
       id: docId,
       type: json['type'] as String? ?? 'RD',
       name: json['name'] as String? ?? '',
-      monthlyAmount: (json['monthlyAmount'] as num).toDouble(),
-      principal: (json['principal'] as num).toDouble(),
-      maturityAmount: (json['maturityAmount'] as num).toDouble(),
-      durationMonths: (json['durationMonths'] as num).toInt(),
-      startDate: (json['startDate'] as Timestamp).toDate(),
-      maturityDate: (json['maturityDate'] as Timestamp).toDate(),
+      monthlyAmount: (json['monthlyAmount'] as num?)?.toDouble() ??
+          (json['monthly_amount'] as num?)?.toDouble() ??
+          0.0,
+      principal: (json['principal'] as num? ?? 0).toDouble(),
+      maturityAmount: (json['maturityAmount'] as num?)?.toDouble() ??
+          (json['maturity_amount'] as num?)?.toDouble() ??
+          0.0,
+      durationMonths: (json['durationMonths'] as num?)?.toInt() ??
+          (json['duration_months'] as num?)?.toInt() ??
+          0,
+      startDate: parseDate(json['startDate'] ?? json['start_date']),
+      maturityDate: parseDate(json['maturityDate'] ?? json['maturity_date']),
       institution: json['institution'] as String? ?? '',
     );
   }

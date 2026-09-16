@@ -33,20 +33,38 @@ class Expense {
     this.isCountedAsSpend = true,
   });
 
-  factory Expense.fromJson(Map<String, dynamic> json, String docId) {
+  factory Expense.fromJson(
+    Map<String, dynamic> json,
+    String docId, {
+    bool? defaultIsCountedAsSpend,
+  }) {
+    DateTime parseDate(dynamic val) {
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.now();
+    }
+
+    final parsedCountAsSpend = json['isCountedAsSpend'] as bool? ??
+        json['is_counted_as_spend'] as bool? ??
+        json['isCountedAsExpense'] as bool? ??
+        json['is_counted_as_expense'] as bool?;
+
     return Expense(
       id: docId,
-      amount: (json['amount'] as num).toDouble(),
+      amount: (json['amount'] as num? ?? 0).toDouble(),
       category: json['category'] as String? ?? 'Other',
       subcategory: json['subcategory'] as String? ?? '',
       note: json['note'] as String? ?? '',
-      date: (json['date'] as Timestamp).toDate(),
+      date: parseDate(json['date']),
       method: (json['method'] as String? ?? 'upi').toLowerCase(),
       source: (json['source'] as String? ?? 'manual').toLowerCase(),
       merchant: json['merchant'] as String? ?? '',
-      accountId: json['accountId'] as String? ?? 'default_bank',
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
-      isCountedAsSpend: json['isCountedAsSpend'] as bool? ?? true,
+      accountId: json['accountId'] as String? ??
+          json['account_id'] as String? ??
+          'default_bank',
+      createdAt: parseDate(json['createdAt']),
+      isCountedAsSpend: parsedCountAsSpend ?? defaultIsCountedAsSpend ?? true,
     );
   }
 

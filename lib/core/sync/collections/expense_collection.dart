@@ -85,6 +85,7 @@ class ExpenseCollection with SyncMetadataMixin {
       'accountId': accountId,
       'createdAt': createdAt.toUtc().toIso8601String(),
       'isCountedAsSpend': isCountedAsSpend,
+      'is_counted_as_spend': isCountedAsSpend,
     };
   }
 }
