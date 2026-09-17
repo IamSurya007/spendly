@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class SyncApiClient {
   final Dio _dio;
 
-  SyncApiClient({Dio? dio, String baseUrl = 'https://spendly-service.onrender.com'})
+  SyncApiClient({Dio? dio, String baseUrl = 'https://fiscora-api.duckdns.org'})
       : _dio = dio ?? Dio(
           BaseOptions(
             baseUrl: baseUrl,

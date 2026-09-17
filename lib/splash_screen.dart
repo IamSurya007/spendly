@@ -14,14 +14,20 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = FirebaseAuth.instance.currentUser;
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
+      initialData: currentUser,
       builder: (context, snapshot) {
+        final user = snapshot.data ?? currentUser;
+        if (user != null) {
+          return _AuthenticatedApp(
+            key: ValueKey(user.uid),
+            user: user,
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SplashScreen();
-        }
-        if (snapshot.hasData && snapshot.data != null) {
-          return _AuthenticatedApp(user: snapshot.data!);
         }
         return const LoginScreen();
       },
@@ -33,19 +39,29 @@ class AuthGate extends ConsumerWidget {
 /// Uses [ConsumerStatefulWidget] so it can read repository providers.
 class _AuthenticatedApp extends ConsumerStatefulWidget {
   final User user;
-  const _AuthenticatedApp({required this.user});
+  const _AuthenticatedApp({super.key, required this.user});
 
   @override
   ConsumerState<_AuthenticatedApp> createState() => _AuthenticatedAppState();
 }
 
+void resetAuthSetup() {
+  _AuthenticatedAppState._completedSetupUid = null;
+}
+
 class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
-  bool _ready = false;
+  late bool _ready;
+  static String? _completedSetupUid;
 
   @override
   void initState() {
     super.initState();
-    _setup();
+    if (_completedSetupUid == widget.user.uid) {
+      _ready = true;
+    } else {
+      _ready = false;
+      _setup();
+    }
   }
 
   Future<void> _setup() async {
@@ -81,6 +97,7 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
     // Trigger initial pull/push sync in background
     SyncEngine.instance.triggerSync();
 
+    _completedSetupUid = widget.user.uid;
     if (mounted) setState(() => _ready = true);
   }
 

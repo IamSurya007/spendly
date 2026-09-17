@@ -7,6 +7,10 @@ import 'package:fiscora/core/sync/sync_api_client.dart';
 
 class IsarUserRepository implements IUserRepository {
   final SyncApiClient _apiClient;
+  static String? _lastSyncedUid;
+  static String? _lastSyncedName;
+  static String? _lastSyncedEmail;
+  static String? _lastSyncedPhotoUrl;
   
   IsarUserRepository(this._apiClient);
 
@@ -14,6 +18,11 @@ class IsarUserRepository implements IUserRepository {
 
   @override
   Future<void> ensureUserProfile(UserProfile profile) async {
+    bool needsRemoteSync = _lastSyncedUid != profile.uid ||
+        _lastSyncedName != profile.name ||
+        _lastSyncedEmail != profile.email ||
+        _lastSyncedPhotoUrl != profile.photoUrl;
+
     // 1. Save locally in Isar
     await _isar.writeAsync((isar) {
       final existing = isar.userProfileCollections
@@ -21,6 +30,7 @@ class IsarUserRepository implements IUserRepository {
           .uidEqualTo(profile.uid)
           .findFirst();
       if (existing == null) {
+        needsRemoteSync = true;
         final newId = isar.userProfileCollections.autoIncrement();
         final col = UserProfileCollection()
           ..id = newId
@@ -31,6 +41,11 @@ class IsarUserRepository implements IUserRepository {
           ..seeded = false;
         isar.userProfileCollections.put(col);
       } else {
+        if (existing.name != profile.name ||
+            existing.email != profile.email ||
+            existing.photoUrl != profile.photoUrl) {
+          needsRemoteSync = true;
+        }
         existing.name = profile.name;
         existing.email = profile.email;
         existing.photoUrl = profile.photoUrl;
@@ -38,12 +53,20 @@ class IsarUserRepository implements IUserRepository {
       }
     });
 
+    if (!needsRemoteSync) {
+      return;
+    }
+
     // 2. Call backend /users/me API to register/update profile (unawaited in background)
     _apiClient.dio.post('/users/me', data: {
       'name': profile.name,
       'email': profile.email,
       'photoUrl': profile.photoUrl,
     }).then((_) {
+      _lastSyncedUid = profile.uid;
+      _lastSyncedName = profile.name;
+      _lastSyncedEmail = profile.email;
+      _lastSyncedPhotoUrl = profile.photoUrl;
       print('IsarUserRepository: ensureUserProfile remote call succeeded');
     }).catchError((e) {
       print('IsarUserRepository: ensureUserProfile remote call failed: $e');

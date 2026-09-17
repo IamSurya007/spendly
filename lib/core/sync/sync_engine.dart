@@ -43,13 +43,18 @@ class SyncEngine {
     _instance!._startListeningToConnectivity();
   }
 
+  bool _wasOffline = false;
+
   void _startListeningToConnectivity() {
     Connectivity().onConnectivityChanged.listen((results) {
       // connectivity_plus v6 onConnectivityChanged returns a List<ConnectivityResult>
       // Check if there is any active non-none connection
       final hasConnection = results.any((result) => result != ConnectivityResult.none);
-      if (hasConnection) {
-        triggerSync(immediate: true);
+      if (hasConnection && _wasOffline) {
+        _wasOffline = false;
+        triggerSync(immediate: false);
+      } else if (!hasConnection) {
+        _wasOffline = true;
       }
     });
   }
@@ -259,7 +264,7 @@ class SyncEngine {
 
   // Pull all entities from server
   Future<int> pullAllEntities({bool force = false}) async {
-    final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule', 'account'];
+    final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule'];
     int totalPulled = 0;
     for (final entity in entities) {
       totalPulled += await pullEntity(entity, force: force);

@@ -74,6 +74,19 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> deleteBudgetCategory(String category) async {
+    state = const AsyncValue.loading();
+    try {
+      const month = 'all';
+      final currentBudget = await _repo.getBudgetForMonth(month);
+      currentBudget.remove(category);
+      await _repo.setBudgetForMonth(month, currentBudget);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
 }
 
 final expenseNotifierProvider =

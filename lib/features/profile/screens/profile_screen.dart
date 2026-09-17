@@ -11,6 +11,7 @@ import '../../../features/auth/data/repository/auth_repository_impl.dart';
 import '../../../features/expenses/services/expense_providers.dart';
 import '../../../features/loans/services/loan_providers.dart';
 import '../../../features/investments/services/investment_providers.dart';
+import '../../../splash_screen.dart';
 import '../../auth/presentation/screens/conflict_resolution_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -65,6 +66,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _showSignOutDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          'Sign Out',
+          style: AppTextStyles.h2.copyWith(color: AppColors.primaryNavy),
+        ),
+        content: Text(
+          'Are you sure you want to sign out of Fiscora?',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.primaryNavy,
+            fontSize: 14,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.label.copyWith(color: AppColors.mutedText),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.expenseRed,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Sign Out',
+              style: AppTextStyles.label.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      resetAuthSetup();
+      await AuthRepositoryImpl().signOut();
     }
   }
 
@@ -363,9 +421,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     'Sign Out',
                     style: AppTextStyles.buttonText.copyWith(color: AppColors.expenseRed),
                   ),
-                  onPressed: () async {
-                    await AuthRepositoryImpl().signOut();
-                  },
+                  onPressed: () => _showSignOutDialog(context),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.expenseRed, width: 1),
                     shape: RoundedRectangleBorder(

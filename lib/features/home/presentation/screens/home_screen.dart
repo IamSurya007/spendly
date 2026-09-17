@@ -238,10 +238,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 border: Border.all(color: AppColors.borderLight),
               ),
-              child: expensesAsync.when(
-                skipLoadingOnRefresh: true,
-                skipLoadingOnReload: true,
-                data: (expenses) {
+              child: () {
+                final expenses = expensesAsync.valueOrNull;
+                if (expenses != null) {
                   if (expenses.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -249,8 +248,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         children: [
                           const Text('💸', style: TextStyle(fontSize: 36)),
                           const SizedBox(height: AppSpacing.sm),
-                          Text('No transactions yet',
-                              style: AppTextStyles.h3),
+                          Text('No transactions yet', style: AppTextStyles.h3),
                           const SizedBox(height: 4),
                           Text(
                             'Tap + to add your first expense',
@@ -283,8 +281,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       ]
                     ],
                   );
-                },
-                loading: () => const Padding(
+                }
+                if (expensesAsync.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Text('Could not load transactions',
+                        style: AppTextStyles.bodySmall),
+                  );
+                }
+                return const Padding(
                   padding: EdgeInsets.all(AppSpacing.xl),
                   child: Center(
                     child: CircularProgressIndicator(
@@ -292,13 +297,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       strokeWidth: 2,
                     ),
                   ),
-                ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Text('Could not load transactions',
-                      style: AppTextStyles.bodySmall),
-                ),
-              ),
+                );
+              }(),
             ),
           ),
 

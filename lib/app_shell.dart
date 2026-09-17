@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'core/widgets/app_bottom_nav.dart';
@@ -244,30 +245,41 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.pageBackground,
-      extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          HomeScreen(
-            user: widget.user,
-            onSeeAll: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ExpensesScreen()),
-              );
-            },
-            onProfileTap: () => setState(() => _currentIndex = 3),
-          ),
-          const LoansScreen(),
-          const InvestmentsScreen(),
-          ProfileScreen(user: widget.user),
-        ],
-      ),
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: _currentIndex,
-        onTap: _handleNavTap,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+        } else {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.pageBackground,
+        extendBody: true,
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            HomeScreen(
+              user: widget.user,
+              onSeeAll: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                );
+              },
+              onProfileTap: () => setState(() => _currentIndex = 3),
+            ),
+            const LoansScreen(),
+            const InvestmentsScreen(),
+            ProfileScreen(user: widget.user),
+          ],
+        ),
+        bottomNavigationBar: AppBottomNav(
+          currentIndex: _currentIndex,
+          onTap: _handleNavTap,
+        ),
       ),
     );
   }

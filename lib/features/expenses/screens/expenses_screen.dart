@@ -78,6 +78,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     setState(() => _expandedCategory = null);
   }
 
+  Future<void> _deleteBudgetCategory(String category) async {
+    await ref
+        .read(expenseNotifierProvider.notifier)
+        .deleteBudgetCategory(category);
+    ref.invalidate(budgetProvider);
+    setState(() => _expandedCategory = null);
+  }
+
   // ── Overview Tab ──────────────────────────────────────────────────────
   Widget _buildOverviewTab(
     List<Expense> monthExpenses,
@@ -101,13 +109,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
 
     if (budget.isEmpty) {
       return _EmptyBudgetState(
-        onSetBudget: () {
-          // Open first category for editing
-          if (ExpenseCategories.all.isNotEmpty) {
-            setState(() => _expandedCategory = ExpenseCategories.all.first.name);
-            _tabController.animateTo(0);
-          }
-        },
+        onSetBudget: () => _showAddCategorySheet(context, budget, spent),
       );
     }
 
@@ -216,7 +218,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                                         _saveBudgetLimit(category, val),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded,
+                                      color: AppColors.expenseRed, size: 22),
+                                  tooltip: 'Remove budget',
+                                  onPressed: () =>
+                                      _deleteBudgetCategory(category),
+                                ),
+                                const SizedBox(width: 4),
                                 TextButton(
                                   onPressed: () =>
                                       _saveBudgetLimit(category, controller.text),
@@ -331,18 +340,34 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                     leading: Text(cat.emoji,
                         style: const TextStyle(fontSize: 24)),
                     title: Text(cat.name, style: AppTextStyles.h3),
-                    trailing: Text(
-                      limit > 0
-                          ? '₹${NumberFormat('#,##,###').format(limit)}'
-                          : isTracked
-                              ? 'Tracking'
-                              : 'No limit',
-                      style: AppTextStyles.label.copyWith(
-                        color: limit > 0
-                            ? AppColors.incomeGreen
-                            : AppColors.mutedText,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          limit > 0
+                              ? '₹${NumberFormat('#,##,###').format(limit)}'
+                              : isTracked
+                                  ? 'Tracking'
+                                  : 'No limit',
+                          style: AppTextStyles.label.copyWith(
+                            color: limit > 0
+                                ? AppColors.incomeGreen
+                                : AppColors.mutedText,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (isTracked) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: AppColors.expenseRed, size: 20),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _deleteBudgetCategory(cat.name);
+                            },
+                          ),
+                        ],
+                      ],
                     ),
                     onTap: () {
                       Navigator.pop(ctx);
@@ -671,10 +696,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
 
             // ── Tab content ───────────────────────────────────────────────
             Expanded(
-              child: expensesAsync.when(
-                skipLoadingOnRefresh: true,
-                skipLoadingOnReload: true,
-                data: (allExpenses) {
+              child: () {
+                final allExpenses = expensesAsync.valueOrNull;
+                if (allExpenses != null) {
                   final monthExpenses = allExpenses
                       .where((e) =>
                           e.date.isAfter(_firstOfMonth
@@ -683,34 +707,27 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                               _lastOfMonth.add(const Duration(seconds: 1))))
                       .toList();
 
+                  final budget = budgetAsync.valueOrNull ?? {};
+
                   return TabBarView(
                     controller: _tabController,
                     children: [
                       // Overview tab
-                      budgetAsync.when(
-                        skipLoadingOnRefresh: true,
-                        skipLoadingOnReload: true,
-                        data: (budget) =>
-                            _buildOverviewTab(monthExpenses, budget),
-                        loading: () => const Center(
-                          child: CircularProgressIndicator(
-                              color: AppColors.accent),
-                        ),
-                        error: (_, __) => const SizedBox.shrink(),
-                      ),
+                      _buildOverviewTab(monthExpenses, budget),
                       // Transactions tab
                       _buildTransactionsTab(allExpenses),
                     ],
                   );
-                },
-                loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.accent),
-                ),
-                error: (e, _) => Center(
-                  child: Text('Error: $e', style: AppTextStyles.bodySmall),
-                ),
-              ),
+                }
+                if (expensesAsync.hasError) {
+                  return Center(
+                    child: Text('Error: ${expensesAsync.error}', style: AppTextStyles.bodySmall),
+                  );
+                }
+                return const Center(
+                  child: CircularProgressIndicator(color: AppColors.accent),
+                );
+              }(),
             ),
           ],
         ),
