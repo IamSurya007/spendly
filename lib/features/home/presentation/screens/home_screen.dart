@@ -14,6 +14,7 @@ import '../../../loans/services/loan_providers.dart';
 import '../../../investments/services/investment_providers.dart';
 import '../../../../core/services/excel_export_service.dart';
 import '../../../accounts/presentation/widgets/accounts_carousel.dart';
+import '../../../ai_chat/screens/spendly_ai_chat_screen.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/quick_actions.dart';
 
@@ -119,6 +120,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         ],
                       ),
                     ),
+                    // AI Assistant Sparkle Button
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SpendlyAiChatScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D1B3E), Color(0xFF3D7FE8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                     // Avatar — taps to Profile
                     GestureDetector(
                       onTap: widget.onProfileTap,
@@ -162,6 +198,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             // ── Quick Actions ─────────────────────────
             SliverToBoxAdapter(
               child: QuickActions(
+                onAiChat: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SpendlyAiChatScreen(),
+                  ),
+                ),
                 onAddExpense: () => showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
@@ -197,6 +239,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 onExport: () => _handleExport(context),
               ),
             ),
+
   
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
   
