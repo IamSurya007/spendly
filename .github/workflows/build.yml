@@ -25,18 +25,22 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          fi
 
       - name: Print keystore SHA-1 (for Firebase Console registration)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           echo "=== KEYSTORE FINGERPRINTS (add SHA-1 to Firebase Console) ==="
           keytool -list -v \
             -keystore android/app/upload-keystore.jks \
             -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            2>/dev/null | grep -E "SHA1|SHA256"
+            2>/dev/null | grep -E "SHA1|SHA256" || true
           echo "=== END FINGERPRINTS ==="
 
       - name: Create key.properties
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
@@ -60,9 +64,17 @@ jobs:
       - name: Get app version from pubspec.yaml
         id: version
         run: |
-          VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          RAW_VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
+          VERSION_NAME=$(echo "$RAW_VERSION" | cut -d'+' -f1)
+          BUILD_NUM=$(echo "$RAW_VERSION" | cut -d'+' -f2)
+          # Clean tag version without '+' for glob matching and GitHub Release compatibility
+          TAG_NAME="v${VERSION_NAME}-build${BUILD_NUM}"
+          CLEAN_FILENAME="fiscora-v${VERSION_NAME}-b${BUILD_NUM}.apk"
+          echo "raw=$RAW_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "filename=$CLEAN_FILENAME" >> $GITHUB_OUTPUT
+          echo "Building version: $RAW_VERSION (Tag: $TAG_NAME, Filename: $CLEAN_FILENAME)"
 
       - name: Build Android APK
         run: flutter build apk --release
@@ -70,24 +82,25 @@ jobs:
       - name: Rename APK with version
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk \
-             build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
+             build/app/outputs/flutter-apk/${{ steps.version.outputs.filename }}
 
       - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fiscora-v${{ steps.version.outputs.version }}
-          path: build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
+          name: fiscora-${{ steps.version.outputs.tag }}
+          path: build/app/outputs/flutter-apk/${{ steps.version.outputs.filename }}
           retention-days: 30
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: "Fiscora v${{ steps.version.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Fiscora ${{ steps.version.outputs.tag }}"
           generate_release_notes: true
           make_latest: true
-          files: build/app/outputs/flutter-apk/fiscora-v${{ steps.version.outputs.version }}.apk
+          files: |
+            build/app/outputs/flutter-apk/*.apk
 
 #  build-ios:
 #    name: Build iOS App

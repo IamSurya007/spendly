@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -25,11 +26,26 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _smsGranted = false;
+  String _appVersion = 'v1.0.3';
 
   @override
   void initState() {
     super.initState();
     _checkSmsPermission();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${info.version} (Build ${info.buildNumber})';
+        });
+      }
+    } catch (_) {
+      // Fallback to default
+    }
   }
 
   Future<void> _checkSmsPermission() async {
@@ -400,7 +416,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: _MenuItem(
                 icon: Icons.info_outline_rounded,
                 label: 'About Fiscora',
-                sublabel: 'v1.0.0',
+                sublabel: _appVersion,
                 onTap: () {},
               ),
             ),
