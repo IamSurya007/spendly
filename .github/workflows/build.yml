@@ -30,24 +30,26 @@ jobs:
           fi
 
       - name: Print keystore SHA-1 (for Firebase Console registration)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
-          echo "=== KEYSTORE FINGERPRINTS (add SHA-1 to Firebase Console) ==="
-          keytool -list -v \
-            -keystore android/app/upload-keystore.jks \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
-            2>/dev/null | grep -E "SHA1|SHA256" || true
-          echo "=== END FINGERPRINTS ==="
+          if [ -f "android/app/upload-keystore.jks" ]; then
+            echo "=== KEYSTORE FINGERPRINTS (add SHA-1 to Firebase Console) ==="
+            keytool -list -v \
+              -keystore android/app/upload-keystore.jks \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              2>/dev/null | grep -E "SHA1|SHA256" || true
+            echo "=== END FINGERPRINTS ==="
+          fi
 
       - name: Create key.properties
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
-          cat <<EOF > android/key.properties
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=../app/upload-keystore.jks
-          EOF
+          if [ -f "android/app/upload-keystore.jks" ]; then
+            cat <<EOF > android/key.properties
+            storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+            keyPassword=${{ secrets.KEY_PASSWORD }}
+            keyAlias=${{ secrets.KEY_ALIAS }}
+            storeFile=../app/upload-keystore.jks
+            EOF
+          fi
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
