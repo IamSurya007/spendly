@@ -65,16 +65,12 @@ jobs:
         id: version
         run: |
           RAW_VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
-          VERSION_NAME=$(echo "$RAW_VERSION" | cut -d'+' -f1)
-          BUILD_NUM=$(echo "$RAW_VERSION" | cut -d'+' -f2)
-          # Clean tag version without '+' for glob matching and GitHub Release compatibility
-          TAG_NAME="v${VERSION_NAME}-build${BUILD_NUM}"
-          CLEAN_FILENAME="fiscora-v${VERSION_NAME}-b${BUILD_NUM}.apk"
+          TAG_NAME="v${RAW_VERSION}"
+          FILENAME="fiscora-v${RAW_VERSION}.apk"
           echo "raw=$RAW_VERSION" >> $GITHUB_OUTPUT
-          echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "filename=$CLEAN_FILENAME" >> $GITHUB_OUTPUT
-          echo "Building version: $RAW_VERSION (Tag: $TAG_NAME, Filename: $CLEAN_FILENAME)"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          echo "Building version: $RAW_VERSION (Tag: $TAG_NAME, Filename: $FILENAME)"
 
       - name: Build Android APK
         run: flutter build apk --release
