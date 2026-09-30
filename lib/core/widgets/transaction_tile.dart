@@ -6,6 +6,8 @@ import '../constants/app_text_styles.dart';
 import '../constants/app_spacing.dart';
 import '../../features/expenses/models/expense_model.dart';
 import '../../features/accounts/services/account_providers.dart';
+import '../../features/categories/services/category_providers.dart';
+import '../../features/categories/widgets/category_icon.dart';
 
 /// Fold / Axio style transaction tile — compact collapsed state, rich expanded state on tap.
 class TransactionTile extends ConsumerStatefulWidget {
@@ -40,9 +42,15 @@ class _TransactionTileState extends ConsumerState<TransactionTile> {
     final account = matchingAccounts.isNotEmpty ? matchingAccounts.first : null;
     final accountName = account?.name ?? '';
 
-    final categoryDisplay = expense.subcategory.isNotEmpty
-        ? '${expense.category} › ${expense.subcategory}'
-        : expense.category;
+    final registry = ref.watch(categoryRegistryProvider);
+    final categoryDisplay = registry.label(
+      expense.categoryId,
+      expense.subcategoryId,
+      isCredit: !isDebit,
+    );
+    final leafName = registry
+        .leaf(expense.categoryId, expense.subcategoryId, isCredit: !isDebit)
+        .name;
 
     final dateFormatted = DateFormat('d MMM · h:mm a').format(expense.date);
 
@@ -74,26 +82,11 @@ class _TransactionTileState extends ConsumerState<TransactionTile> {
             Row(
               children: [
                 // Icon chip
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isExcluded
-                        ? AppColors.inputFill.withOpacity(0.5)
-                        : AppColors.inputFill,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      ExpenseCategories.iconEmoji(expense.category),
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: isExcluded
-                            ? Colors.black.withOpacity(0.35)
-                            : null,
-                      ),
-                    ),
-                  ),
+                ExpenseCategoryIcon(
+                  categoryId: expense.categoryId,
+                  subcategoryId: expense.subcategoryId,
+                  isCredit: !isDebit,
+                  muted: isExcluded,
                 ),
                 const SizedBox(width: AppSpacing.md),
                 // Title + Subtitle
@@ -106,7 +99,7 @@ class _TransactionTileState extends ConsumerState<TransactionTile> {
                             ? expense.merchant
                             : expense.note.isNotEmpty
                                 ? expense.note
-                                : expense.category,
+                                : leafName,
                         style: AppTextStyles.h3.copyWith(
                           color: isExcluded ? AppColors.mutedText : null,
                         ),
@@ -115,7 +108,7 @@ class _TransactionTileState extends ConsumerState<TransactionTile> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _isExpanded ? dateFormatted : '${expense.category} · ${DateFormat('d MMM').format(expense.date)}',
+                        _isExpanded ? dateFormatted : '$leafName · ${DateFormat('d MMM').format(expense.date)}',
                         style: AppTextStyles.caption,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -167,7 +160,9 @@ class _TransactionTileState extends ConsumerState<TransactionTile> {
                       children: [
                         // Category / Subcategory chip
                         _MetaChip(
-                          icon: Icons.category_rounded,
+                          icon: categoryIconData(
+                            registry.leaf(expense.categoryId, expense.subcategoryId, isCredit: !isDebit).iconKey,
+                          ),
                           label: categoryDisplay,
                           color: AppColors.primaryNavy,
                           bgColor: AppColors.inputFill,

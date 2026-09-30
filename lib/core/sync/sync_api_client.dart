@@ -37,7 +37,8 @@ class SyncApiClient {
             curlLines.add('curl -X ${options.method} "$fullPath"');
             
             options.headers.forEach((key, value) {
-              curlLines.add('  -H "$key: $value"');
+              final shown = key.toLowerCase() == 'authorization' ? 'Bearer <redacted>' : value;
+              curlLines.add('  -H "$key: $shown"');
             });
             
             if (options.data != null) {

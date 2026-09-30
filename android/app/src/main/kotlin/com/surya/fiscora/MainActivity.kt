@@ -54,15 +54,22 @@ class MainActivity : FlutterActivity() {
             val date = intent.getStringExtra("date") ?: ""
             val body = intent.getStringExtra("body") ?: ""
             val source = intent.getStringExtra("source") ?: "sms"
+            val sender = intent.getStringExtra("sender") ?: ""
+            val sentAtMs = intent.getLongExtra("sentAtMs", 0L)
+            val receivedAtMs = intent.getLongExtra("receivedAtMs", 0L)
 
-            pendingIntentTransaction = hashMapOf(
+            pendingIntentTransaction = hashMapOf<String, Any>(
                 "amount" to amount,
                 "merchant" to merchant,
                 "isDebit" to isDebit,
                 "date" to date,
                 "body" to body,
-                "source" to source
-            )
+                "source" to source,
+                "sender" to sender
+            ).apply {
+                if (sentAtMs > 0) put("sentAtMs", sentAtMs)
+                if (receivedAtMs > 0) put("receivedAtMs", receivedAtMs)
+            }
         }
     }
 
@@ -109,7 +116,8 @@ class MainActivity : FlutterActivity() {
                     val key = keys.next()
                     when (val value = obj.get(key)) {
                         is Double -> map[key] = value
-                        is Int -> map[key] = value.toDouble()
+                        is Long -> map[key] = value
+                        is Int -> map[key] = if (key.endsWith("AtMs")) value.toLong() else value.toDouble()
                         is Boolean -> map[key] = value
                         else -> map[key] = value.toString()
                     }
@@ -123,9 +131,10 @@ class MainActivity : FlutterActivity() {
         // 2. Add single intent pending transaction if present
         pendingIntentTransaction?.let { intentTxn ->
             val exists = resultList.any {
-                it["amount"] == intentTxn["amount"] &&
-                it["merchant"] == intentTxn["merchant"] &&
-                it["date"] == intentTxn["date"]
+                (it["body"] == intentTxn["body"] && it["sender"] == intentTxn["sender"]) ||
+                (it["amount"] == intentTxn["amount"] &&
+                    it["merchant"] == intentTxn["merchant"] &&
+                    it["date"] == intentTxn["date"])
             }
             if (!exists) {
                 resultList.add(intentTxn)

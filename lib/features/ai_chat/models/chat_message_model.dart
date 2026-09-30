@@ -64,6 +64,21 @@ class ChatMessageModel {
     this.isLoading = false,
   });
 
+  /// A message loaded from a saved conversation (`GET /rag/conversations/:id/messages`).
+  factory ChatMessageModel.fromServerJson(Map<String, dynamic> json) {
+    final rawSources = json['sources'];
+    return ChatMessageModel(
+      id: json['id']?.toString() ?? '',
+      text: json['content']?.toString() ?? '',
+      sender: json['role'] == 'user' ? MessageSender.user : MessageSender.ai,
+      timestamp: DateTime.tryParse(json['createdAt']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      sources: rawSources is List
+          ? rawSources.whereType<Map<String, dynamic>>().map(RagSource.fromJson).toList()
+          : null,
+      isGrounded: json['grounded'] as bool? ?? false,
+    );
+  }
+
   bool get isUser => sender == MessageSender.user;
   bool get isAi => sender == MessageSender.ai;
 

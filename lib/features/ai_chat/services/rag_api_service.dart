@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../models/chat_conversation_model.dart';
 import '../models/chat_message_model.dart';
 
 class RagApiException implements Exception {
@@ -19,10 +20,18 @@ class RagResponse {
   final List<RagSource> sources;
   final bool grounded;
 
+  /// Set when the server saved this exchange to chat history.
+  final String? conversationId;
+  final String? conversationTitle;
+  final String? messageId;
+
   RagResponse({
     required this.answer,
     required this.sources,
     required this.grounded,
+    this.conversationId,
+    this.conversationTitle,
+    this.messageId,
   });
 
   factory RagResponse.fromJson(Map<String, dynamic> json) {
@@ -40,8 +49,18 @@ class RagResponse {
       answer: json['answer']?.toString() ?? 'No response answer provided.',
       sources: sourcesList,
       grounded: json['grounded'] as bool? ?? false,
+      conversationId: json['conversationId'] as String?,
+      conversationTitle: json['conversationTitle'] as String?,
+      messageId: json['messageId'] as String?,
     );
   }
+}
+
+class ConversationPage {
+  final List<ChatConversationSummary> items;
+  final String? nextCursor;
+
+  ConversationPage(this.items, this.nextCursor);
 }
 
 class RagApiService {
@@ -61,39 +80,89 @@ class RagApiService {
               ),
             );
 
-  Future<RagResponse> askQuestion(String question) async {
-    try {
-      final token = await FirebaseAuth.instance.currentUser?.getIdToken(false);
+  Future<Options> _authOptions() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken(false);
+    return Options(
+      headers: {
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+  }
 
+  Map<String, dynamic> _asMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is String) return jsonDecode(data) as Map<String, dynamic>;
+    throw RagApiException('Unexpected response format from server.');
+  }
+
+  /// Asks a question. Pass [conversationId] to continue a saved conversation
+  /// (the server then includes its recent messages as context).
+  Future<RagResponse> askQuestion(String question, {String? conversationId}) {
+    return _guard(() async {
       final response = await _dio.post(
         '/rag/ask',
-        data: {'question': question},
-        options: Options(
-          headers: {
-            if (token != null && token.isNotEmpty)
-              'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
+        data: {
+          'question': question,
+          if (conversationId != null) 'conversationId': conversationId,
+        },
+        options: await _authOptions(),
       );
+      return RagResponse.fromJson(_asMap(response.data));
+    });
+  }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> data;
-        if (response.data is Map<String, dynamic>) {
-          data = response.data as Map<String, dynamic>;
-        } else if (response.data is String) {
-          data = jsonDecode(response.data as String) as Map<String, dynamic>;
-        } else {
-          throw RagApiException('Unexpected response format from server.');
-        }
-
-        return RagResponse.fromJson(data);
-      }
-
-      throw RagApiException(
-        'Server returned HTTP status ${response.statusCode}',
-        statusCode: response.statusCode,
+  Future<ConversationPage> listConversations({String? cursor}) {
+    return _guard(() async {
+      final response = await _dio.get(
+        '/rag/conversations',
+        queryParameters: {if (cursor != null) 'cursor': cursor},
+        options: await _authOptions(),
       );
+      final data = _asMap(response.data);
+      final items = (data['items'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatConversationSummary.fromJson)
+          .toList();
+      return ConversationPage(items, data['nextCursor'] as String?);
+    });
+  }
+
+  Future<({String title, List<ChatMessageModel> messages})> getMessages(String conversationId) {
+    return _guard(() async {
+      final response = await _dio.get(
+        '/rag/conversations/$conversationId/messages',
+        options: await _authOptions(),
+      );
+      final data = _asMap(response.data);
+      final messages = (data['messages'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatMessageModel.fromServerJson)
+          .toList();
+      return (title: data['title']?.toString() ?? 'Conversation', messages: messages);
+    });
+  }
+
+  Future<void> renameConversation(String conversationId, String title) {
+    return _guard(() async {
+      await _dio.patch(
+        '/rag/conversations/$conversationId',
+        data: {'title': title},
+        options: await _authOptions(),
+      );
+    });
+  }
+
+  Future<void> deleteConversation(String conversationId) {
+    return _guard(() async {
+      await _dio.delete('/rag/conversations/$conversationId', options: await _authOptions());
+    });
+  }
+
+  /// Maps transport errors to user-friendly [RagApiException]s.
+  Future<T> _guard<T>(Future<T> Function() request) async {
+    try {
+      return await request();
     } on DioException catch (e) {
       if (kDebugMode) {
         print('RagApiService DioError: ${e.message} | Response: ${e.response?.data}');
@@ -105,6 +174,8 @@ class RagApiService {
         userFriendlyMessage = 'Request timed out. Please check your internet connection.';
       } else if (statusCode == 401 || statusCode == 403) {
         userFriendlyMessage = 'Authentication token expired. Please re-login.';
+      } else if (statusCode == 404) {
+        userFriendlyMessage = 'This conversation no longer exists.';
       } else if (statusCode != null && statusCode >= 500) {
         userFriendlyMessage = 'Spendly AI server is currently undergoing maintenance.';
       } else if (e.response?.data is Map &&

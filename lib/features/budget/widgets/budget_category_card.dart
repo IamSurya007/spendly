@@ -7,16 +7,20 @@ import '../../../core/constants/app_spacing.dart';
 /// A category budget progress card.
 class BudgetCategoryCard extends StatelessWidget {
   final String category;
-  final String emoji;
+  final Widget leading;
   final double spent;
   final double limit;
+
+  /// Top subcategories by spend within this category: (name, amount).
+  final List<(String, double)> breakdown;
 
   const BudgetCategoryCard({
     super.key,
     required this.category,
-    required this.emoji,
+    required this.leading,
     required this.spent,
     required this.limit,
+    this.breakdown = const [],
   });
 
   @override
@@ -48,18 +52,7 @@ class BudgetCategoryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Emoji icon chip
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.inputFill,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 16)),
-                ),
-              ),
+              leading,
               const SizedBox(width: AppSpacing.sm + 4),
               Expanded(
                 child: Column(
@@ -102,6 +95,15 @@ class BudgetCategoryCard extends StatelessWidget {
               minHeight: 6,
             ),
           ),
+          if (breakdown.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              breakdown.map((b) => '${b.$1} ₹${fmt.format(b.$2)}').join('  ·  '),
+              style: AppTextStyles.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );

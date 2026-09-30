@@ -1,4 +1,5 @@
 import 'package:isar_plus/isar_plus.dart';
+import '../../../../features/categories/services/category_resolver.dart';
 import '../../../../features/expenses/models/expense_model.dart';
 import '../sync_metadata.dart';
 
@@ -11,6 +12,8 @@ class ExpenseCollection with SyncMetadataMixin {
   late double amount;
   late String category;
   String subcategory = '';
+  String categoryId = '';
+  String subcategoryId = '';
   late String note;
   late DateTime date;
   late String method;
@@ -35,6 +38,8 @@ class ExpenseCollection with SyncMetadataMixin {
       ..amount = expense.amount
       ..category = expense.category
       ..subcategory = expense.subcategory
+      ..categoryId = expense.categoryId
+      ..subcategoryId = expense.subcategoryId
       ..note = expense.note
       ..date = expense.date
       ..method = expense.method
@@ -56,11 +61,17 @@ class ExpenseCollection with SyncMetadataMixin {
   }
 
   Expense toDomain() {
+    // Rows written before category ids existed are resolved from the name.
+    final legacy = categoryId.isEmpty
+        ? CategoryResolver.fromLegacyName(category, isCredit: amount < 0)
+        : null;
     return Expense(
       id: clientId,
       amount: amount,
       category: category,
       subcategory: subcategory,
+      categoryId: legacy?.categoryId ?? categoryId,
+      subcategoryId: legacy?.subcategoryId ?? subcategoryId,
       note: note,
       date: date,
       method: method,
@@ -77,6 +88,8 @@ class ExpenseCollection with SyncMetadataMixin {
       'amount': amount,
       'category': category,
       'subcategory': subcategory,
+      'categoryId': categoryId,
+      'subcategoryId': subcategoryId,
       'note': note,
       'date': date.toUtc().toIso8601String(),
       'method': method.toUpperCase(), // backend enums: CASH, UPI, CARD, etc.

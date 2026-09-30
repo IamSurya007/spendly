@@ -8,6 +8,9 @@ import '../../../core/widgets/transaction_tile.dart';
 import '../../../features/accounts/services/account_providers.dart';
 import '../../budget/widgets/budget_category_card.dart';
 import '../../budget/widgets/budget_overview_card.dart';
+import '../../categories/models/category.dart';
+import '../../categories/services/category_providers.dart';
+import '../../categories/widgets/category_icon.dart';
 import '../../expenses/models/expense_model.dart';
 import '../../expenses/services/expense_providers.dart';
 import 'add_expense_sheet.dart';
@@ -91,11 +94,18 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     List<Expense> monthExpenses,
     Map<String, Map<String, dynamic>> budget,
   ) {
-    // Compute actual spending per category
+    // Actual spending per parent category, and per subcategory within it.
+    // Budgets are keyed by parent category id.
+    final registry = ref.watch(categoryRegistryProvider);
     final spent = <String, double>{};
+    final spentBySub = <String, Map<String, double>>{};
     for (final e in monthExpenses) {
-      if (e.isCountedAsSpend) {
-        spent[e.category] = (spent[e.category] ?? 0) + e.amount;
+      if (e.amount > 0 && e.isCountedAsSpend) {
+        spent[e.categoryId] = (spent[e.categoryId] ?? 0) + e.amount;
+        if (e.subcategoryId.isNotEmpty) {
+          final subs = spentBySub.putIfAbsent(e.categoryId, () => {});
+          subs[e.subcategoryId] = (subs[e.subcategoryId] ?? 0) + e.amount;
+        }
       }
     }
 
@@ -163,6 +173,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
               final actualSpent = spent[category] ?? 0.0;
               final isExpanded = _expandedCategory == category;
               final controller = _controllerFor(category, limit);
+              final cat = registry.categoryOrFallback(category);
+              final subs = (spentBySub[category]?.entries.toList() ?? [])
+                ..sort((a, b) => b.value.compareTo(a.value));
 
               return Column(
                 children: [
@@ -170,10 +183,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                     onTap: () => setState(() =>
                         _expandedCategory = isExpanded ? null : category),
                     child: BudgetCategoryCard(
-                      category: category,
-                      emoji: ExpenseCategories.iconEmoji(category),
+                      category: cat.name,
+                      leading: CategoryIcon(category: cat, size: 36),
                       spent: actualSpent,
                       limit: limit,
+                      breakdown: [
+                        for (final s in subs.take(3))
+                          (registry.byId(s.key)?.name ?? '', s.value),
+                      ],
                     ),
                   ),
                   // Inline limit editor
@@ -298,6 +315,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     Map<String, Map<String, dynamic>> budget,
     Map<String, double> spent,
   ) {
+    final budgetableCategories = ref.read(categoryRegistryProvider).parents(kind: CategoryKind.expense);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -330,15 +348,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
             const Divider(height: AppSpacing.lg),
             Expanded(
               child: ListView.builder(
-                itemCount: ExpenseCategories.all.length,
+                itemCount: budgetableCategories.length,
                 itemBuilder: (_, index) {
-                  final cat = ExpenseCategories.all[index];
+                  final cat = budgetableCategories[index];
                   final limit =
-                      (budget[cat.name]?['limit'] as num?)?.toDouble() ?? 0.0;
-                  final isTracked = budget.containsKey(cat.name);
+                      (budget[cat.id]?['limit'] as num?)?.toDouble() ?? 0.0;
+                  final isTracked = budget.containsKey(cat.id);
                   return ListTile(
-                    leading: Text(cat.emoji,
-                        style: const TextStyle(fontSize: 24)),
+                    leading: CategoryIcon(category: cat, size: 38),
                     title: Text(cat.name, style: AppTextStyles.h3),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -363,7 +380,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                                 color: AppColors.expenseRed, size: 20),
                             onPressed: () {
                               Navigator.pop(ctx);
-                              _deleteBudgetCategory(cat.name);
+                              _deleteBudgetCategory(cat.id);
                             },
                           ),
                         ],
@@ -371,12 +388,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                     ),
                     onTap: () {
                       Navigator.pop(ctx);
-                      setState(() => _expandedCategory = cat.name);
+                      setState(() => _expandedCategory = cat.id);
                       // Ensure the category is in budget map
-                      if (!budget.containsKey(cat.name)) {
+                      if (!budget.containsKey(cat.id)) {
                         ref
                             .read(expenseNotifierProvider.notifier)
-                            .updateBudgetLimit(cat.name, 0.0);
+                            .updateBudgetLimit(cat.id, 0.0);
                         ref.invalidate(budgetProvider);
                       }
                       _tabController.animateTo(0);
@@ -405,10 +422,17 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
       filtered =
           filtered.where((e) => e.accountId == _filterAccountId).toList();
     }
-    if (_filterCategory != null) {
-      filtered =
-          filtered.where((e) => e.category == _filterCategory).toList();
+    final registry = ref.watch(categoryRegistryProvider);
+    final filterId = _filterCategory;
+    if (filterId != null) {
+      filtered = filtered
+          .where((e) => e.categoryId == filterId || e.subcategoryId == filterId)
+          .toList();
     }
+    // Parent whose subcategory chips are shown (the filter itself or its parent).
+    final filterCat = filterId == null ? null : registry.byId(filterId);
+    final openParentId = filterCat == null ? null : (filterCat.parentId ?? filterCat.id);
+    final subFilters = openParentId == null ? const <Category>[] : registry.childrenOf(openParentId);
 
     final grouped = <String, List<Expense>>{};
     for (final e in filtered) {
@@ -518,29 +542,54 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
 
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xs)),
 
-        // Category filter chips
+        // Category filter chips (parents; subcategories appear below once a
+        // parent is chosen)
         SliverToBoxAdapter(
           child: SizedBox(
             height: 38,
-            child: ListView.builder(
+            child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding),
-              itemCount: ExpenseCategories.all.length,
-              itemBuilder: (_, i) {
-                final cat = ExpenseCategories.all[i];
-                final isSelected = _filterCategory == cat.name;
-                return _FilterChip(
-                  label: '${cat.emoji} ${cat.name}',
-                  isSelected: isSelected,
-                  color: AppColors.accent,
-                  onTap: () => setState(() =>
-                      _filterCategory = isSelected ? null : cat.name),
-                );
-              },
+              children: [
+                for (final cat in registry.parents())
+                  _FilterChip(
+                    label: cat.name,
+                    isSelected: openParentId == cat.id,
+                    color: cat.colorValue,
+                    icon: categoryIconData(cat.iconKey),
+                    onTap: () => setState(() =>
+                        _filterCategory = openParentId == cat.id ? null : cat.id),
+                  ),
+              ],
             ),
           ),
         ),
+        if (subFilters.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: SizedBox(
+                height: 34,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.screenPadding),
+                  children: [
+                    for (final sub in subFilters)
+                      _FilterChip(
+                        label: sub.name,
+                        isSelected: filterId == sub.id,
+                        color: sub.colorValue,
+                        icon: categoryIconData(sub.iconKey),
+                        onTap: () => setState(() =>
+                            _filterCategory = filterId == sub.id ? openParentId : sub.id),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
         const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
@@ -556,8 +605,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
                     const SizedBox(height: AppSpacing.sm),
                     Text('No transactions', style: AppTextStyles.h3),
                     Text(
-                      _filterCategory != null
-                          ? 'in $_filterCategory this month'
+                      filterCat != null
+                          ? 'in ${filterCat.name} this month'
                           : 'for this month',
                       style: AppTextStyles.caption,
                     ),

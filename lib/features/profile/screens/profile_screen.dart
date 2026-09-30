@@ -14,6 +14,9 @@ import '../../../features/loans/services/loan_providers.dart';
 import '../../../features/investments/services/investment_providers.dart';
 import '../../../splash_screen.dart';
 import '../../auth/presentation/screens/conflict_resolution_screen.dart';
+import '../../categories/screens/manage_categories_screen.dart';
+import '../../../core/sync/isar_database.dart';
+import '../../../core/sync/sync_engine.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final User user;
@@ -136,10 +139,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      resetAuthSetup();
-      await AuthRepositoryImpl().signOut();
+    if (confirmed != true) return;
+
+    // Push local changes first; local data is wiped on sign-out.
+    await SyncEngine.instance.syncNow();
+    final pending = await SyncEngine.instance.pendingOutboxCount();
+    if (pending > 0 && context.mounted) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Unsynced changes'),
+          content: Text(
+            '$pending change${pending == 1 ? '' : 's'} could not be uploaded yet '
+            '(are you offline?). Signing out now will lose them.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay signed in')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sign out anyway', style: TextStyle(color: AppColors.expenseRed)),
+            ),
+          ],
+        ),
+      );
+      if (discard != true) return;
     }
+
+    resetAuthSetup();
+    await IsarDatabase.clearAll();
+    await AuthRepositoryImpl().signOut();
   }
 
   @override
@@ -359,6 +387,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         await openAppSettings();
                         await _checkSmsPermission();
                       }
+                    },
+                  ),
+                  const Divider(height: 1, color: AppColors.borderLight),
+                  _MenuItem(
+                    icon: Icons.category_rounded,
+                    label: 'Categories',
+                    sublabel: 'Add, rename, recolour or hide categories',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
+                      );
                     },
                   ),
                   const Divider(height: 1, color: AppColors.borderLight),

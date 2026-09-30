@@ -23,6 +23,8 @@ final CategoryRuleCollectionSchema = IsarGeneratedSchema(
     properties: [
       IsarPropertySchema(name: 'merchant', type: IsarType.string),
       IsarPropertySchema(name: 'category', type: IsarType.string),
+      IsarPropertySchema(name: 'categoryId', type: IsarType.string),
+      IsarPropertySchema(name: 'subcategoryId', type: IsarType.string),
       IsarPropertySchema(name: 'serverId', type: IsarType.string),
       IsarPropertySchema(name: 'clientId', type: IsarType.string),
       IsarPropertySchema(name: 'updatedAt', type: IsarType.dateTime),
@@ -49,30 +51,32 @@ int serializeCategoryRuleCollection(
 ) {
   IsarCore.writeString(writer, 1, object.merchant);
   IsarCore.writeString(writer, 2, object.category);
+  IsarCore.writeString(writer, 3, object.categoryId);
+  IsarCore.writeString(writer, 4, object.subcategoryId);
   {
     final value = object.serverId;
     if (value == null) {
-      IsarCore.writeNull(writer, 3);
+      IsarCore.writeNull(writer, 5);
     } else {
-      IsarCore.writeString(writer, 3, value);
+      IsarCore.writeString(writer, 5, value);
     }
   }
-  IsarCore.writeString(writer, 4, object.clientId);
+  IsarCore.writeString(writer, 6, object.clientId);
   IsarCore.writeLong(
     writer,
-    5,
+    7,
     object.updatedAt.toUtc().microsecondsSinceEpoch,
   );
   IsarCore.writeLong(
     writer,
-    6,
+    8,
     object.serverUpdatedAt?.toUtc().microsecondsSinceEpoch ??
         -9223372036854775808,
   );
-  IsarCore.writeString(writer, 7, object.syncStatus);
-  IsarCore.writeBool(writer, 8, value: object.isDeleted);
-  IsarCore.writeLong(writer, 9, object.version);
-  IsarCore.writeBool(writer, 10, value: object.dirty);
+  IsarCore.writeString(writer, 9, object.syncStatus);
+  IsarCore.writeBool(writer, 10, value: object.isDeleted);
+  IsarCore.writeLong(writer, 11, object.version);
+  IsarCore.writeBool(writer, 12, value: object.dirty);
   return object.id;
 }
 
@@ -82,10 +86,12 @@ CategoryRuleCollection deserializeCategoryRuleCollection(IsarReader reader) {
   object.id = IsarCore.readId(reader);
   object.merchant = IsarCore.readString(reader, 1) ?? '';
   object.category = IsarCore.readString(reader, 2) ?? '';
-  object.serverId = IsarCore.readString(reader, 3);
-  object.clientId = IsarCore.readString(reader, 4) ?? '';
+  object.categoryId = IsarCore.readString(reader, 3) ?? '';
+  object.subcategoryId = IsarCore.readString(reader, 4) ?? '';
+  object.serverId = IsarCore.readString(reader, 5);
+  object.clientId = IsarCore.readString(reader, 6) ?? '';
   {
-    final value = IsarCore.readLong(reader, 5);
+    final value = IsarCore.readLong(reader, 7);
     if (value == -9223372036854775808) {
       object.updatedAt = DateTime.fromMillisecondsSinceEpoch(
         0,
@@ -99,7 +105,7 @@ CategoryRuleCollection deserializeCategoryRuleCollection(IsarReader reader) {
     }
   }
   {
-    final value = IsarCore.readLong(reader, 6);
+    final value = IsarCore.readLong(reader, 8);
     if (value == -9223372036854775808) {
       object.serverUpdatedAt = null;
     } else {
@@ -109,10 +115,10 @@ CategoryRuleCollection deserializeCategoryRuleCollection(IsarReader reader) {
       ).toLocal();
     }
   }
-  object.syncStatus = IsarCore.readString(reader, 7) ?? '';
-  object.isDeleted = IsarCore.readBool(reader, 8);
-  object.version = IsarCore.readLong(reader, 9);
-  object.dirty = IsarCore.readBool(reader, 10);
+  object.syncStatus = IsarCore.readString(reader, 9) ?? '';
+  object.isDeleted = IsarCore.readBool(reader, 10);
+  object.version = IsarCore.readLong(reader, 11);
+  object.dirty = IsarCore.readBool(reader, 12);
   return object;
 }
 
@@ -126,12 +132,16 @@ dynamic deserializeCategoryRuleCollectionProp(IsarReader reader, int property) {
     case 2:
       return IsarCore.readString(reader, 2) ?? '';
     case 3:
-      return IsarCore.readString(reader, 3);
+      return IsarCore.readString(reader, 3) ?? '';
     case 4:
       return IsarCore.readString(reader, 4) ?? '';
     case 5:
+      return IsarCore.readString(reader, 5);
+    case 6:
+      return IsarCore.readString(reader, 6) ?? '';
+    case 7:
       {
-        final value = IsarCore.readLong(reader, 5);
+        final value = IsarCore.readLong(reader, 7);
         if (value == -9223372036854775808) {
           return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true).toLocal();
         } else {
@@ -141,9 +151,9 @@ dynamic deserializeCategoryRuleCollectionProp(IsarReader reader, int property) {
           ).toLocal();
         }
       }
-    case 6:
+    case 8:
       {
-        final value = IsarCore.readLong(reader, 6);
+        final value = IsarCore.readLong(reader, 8);
         if (value == -9223372036854775808) {
           return null;
         } else {
@@ -153,14 +163,14 @@ dynamic deserializeCategoryRuleCollectionProp(IsarReader reader, int property) {
           ).toLocal();
         }
       }
-    case 7:
-      return IsarCore.readString(reader, 7) ?? '';
-    case 8:
-      return IsarCore.readBool(reader, 8);
     case 9:
-      return IsarCore.readLong(reader, 9);
+      return IsarCore.readString(reader, 9) ?? '';
     case 10:
       return IsarCore.readBool(reader, 10);
+    case 11:
+      return IsarCore.readLong(reader, 11);
+    case 12:
+      return IsarCore.readBool(reader, 12);
     default:
       throw ArgumentError('Unknown property: $property');
   }
@@ -171,6 +181,8 @@ sealed class _CategoryRuleCollectionUpdate {
     required int id,
     String? merchant,
     String? category,
+    String? categoryId,
+    String? subcategoryId,
     String? serverId,
     String? clientId,
     DateTime? updatedAt,
@@ -193,6 +205,8 @@ class _CategoryRuleCollectionUpdateImpl
     required int id,
     Object? merchant = ignore,
     Object? category = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? serverId = ignore,
     Object? clientId = ignore,
     Object? updatedAt = ignore,
@@ -207,14 +221,16 @@ class _CategoryRuleCollectionUpdateImpl
           {
             if (merchant != ignore) 1: merchant as String?,
             if (category != ignore) 2: category as String?,
-            if (serverId != ignore) 3: serverId as String?,
-            if (clientId != ignore) 4: clientId as String?,
-            if (updatedAt != ignore) 5: updatedAt as DateTime?,
-            if (serverUpdatedAt != ignore) 6: serverUpdatedAt as DateTime?,
-            if (syncStatus != ignore) 7: syncStatus as String?,
-            if (isDeleted != ignore) 8: isDeleted as bool?,
-            if (version != ignore) 9: version as int?,
-            if (dirty != ignore) 10: dirty as bool?,
+            if (categoryId != ignore) 3: categoryId as String?,
+            if (subcategoryId != ignore) 4: subcategoryId as String?,
+            if (serverId != ignore) 5: serverId as String?,
+            if (clientId != ignore) 6: clientId as String?,
+            if (updatedAt != ignore) 7: updatedAt as DateTime?,
+            if (serverUpdatedAt != ignore) 8: serverUpdatedAt as DateTime?,
+            if (syncStatus != ignore) 9: syncStatus as String?,
+            if (isDeleted != ignore) 10: isDeleted as bool?,
+            if (version != ignore) 11: version as int?,
+            if (dirty != ignore) 12: dirty as bool?,
           },
         ) >
         0;
@@ -226,6 +242,8 @@ sealed class _CategoryRuleCollectionUpdateAll {
     required List<int> id,
     String? merchant,
     String? category,
+    String? categoryId,
+    String? subcategoryId,
     String? serverId,
     String? clientId,
     DateTime? updatedAt,
@@ -248,6 +266,8 @@ class _CategoryRuleCollectionUpdateAllImpl
     required List<int> id,
     Object? merchant = ignore,
     Object? category = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? serverId = ignore,
     Object? clientId = ignore,
     Object? updatedAt = ignore,
@@ -260,14 +280,16 @@ class _CategoryRuleCollectionUpdateAllImpl
     return collection.updateProperties(id, {
       if (merchant != ignore) 1: merchant as String?,
       if (category != ignore) 2: category as String?,
-      if (serverId != ignore) 3: serverId as String?,
-      if (clientId != ignore) 4: clientId as String?,
-      if (updatedAt != ignore) 5: updatedAt as DateTime?,
-      if (serverUpdatedAt != ignore) 6: serverUpdatedAt as DateTime?,
-      if (syncStatus != ignore) 7: syncStatus as String?,
-      if (isDeleted != ignore) 8: isDeleted as bool?,
-      if (version != ignore) 9: version as int?,
-      if (dirty != ignore) 10: dirty as bool?,
+      if (categoryId != ignore) 3: categoryId as String?,
+      if (subcategoryId != ignore) 4: subcategoryId as String?,
+      if (serverId != ignore) 5: serverId as String?,
+      if (clientId != ignore) 6: clientId as String?,
+      if (updatedAt != ignore) 7: updatedAt as DateTime?,
+      if (serverUpdatedAt != ignore) 8: serverUpdatedAt as DateTime?,
+      if (syncStatus != ignore) 9: syncStatus as String?,
+      if (isDeleted != ignore) 10: isDeleted as bool?,
+      if (version != ignore) 11: version as int?,
+      if (dirty != ignore) 12: dirty as bool?,
     });
   }
 }
@@ -285,6 +307,8 @@ sealed class _CategoryRuleCollectionQueryUpdate {
   int call({
     String? merchant,
     String? category,
+    String? categoryId,
+    String? subcategoryId,
     String? serverId,
     String? clientId,
     DateTime? updatedAt,
@@ -307,6 +331,8 @@ class _CategoryRuleCollectionQueryUpdateImpl
   int call({
     Object? merchant = ignore,
     Object? category = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? serverId = ignore,
     Object? clientId = ignore,
     Object? updatedAt = ignore,
@@ -319,14 +345,16 @@ class _CategoryRuleCollectionQueryUpdateImpl
     return query.updateProperties(limit: limit, {
       if (merchant != ignore) 1: merchant as String?,
       if (category != ignore) 2: category as String?,
-      if (serverId != ignore) 3: serverId as String?,
-      if (clientId != ignore) 4: clientId as String?,
-      if (updatedAt != ignore) 5: updatedAt as DateTime?,
-      if (serverUpdatedAt != ignore) 6: serverUpdatedAt as DateTime?,
-      if (syncStatus != ignore) 7: syncStatus as String?,
-      if (isDeleted != ignore) 8: isDeleted as bool?,
-      if (version != ignore) 9: version as int?,
-      if (dirty != ignore) 10: dirty as bool?,
+      if (categoryId != ignore) 3: categoryId as String?,
+      if (subcategoryId != ignore) 4: subcategoryId as String?,
+      if (serverId != ignore) 5: serverId as String?,
+      if (clientId != ignore) 6: clientId as String?,
+      if (updatedAt != ignore) 7: updatedAt as DateTime?,
+      if (serverUpdatedAt != ignore) 8: serverUpdatedAt as DateTime?,
+      if (syncStatus != ignore) 9: syncStatus as String?,
+      if (isDeleted != ignore) 10: isDeleted as bool?,
+      if (version != ignore) 11: version as int?,
+      if (dirty != ignore) 12: dirty as bool?,
     });
   }
 }
@@ -356,6 +384,8 @@ class _CategoryRuleCollectionQueryBuilderUpdateImpl
   int call({
     Object? merchant = ignore,
     Object? category = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? serverId = ignore,
     Object? clientId = ignore,
     Object? updatedAt = ignore,
@@ -370,14 +400,16 @@ class _CategoryRuleCollectionQueryBuilderUpdateImpl
       return q.updateProperties(limit: limit, {
         if (merchant != ignore) 1: merchant as String?,
         if (category != ignore) 2: category as String?,
-        if (serverId != ignore) 3: serverId as String?,
-        if (clientId != ignore) 4: clientId as String?,
-        if (updatedAt != ignore) 5: updatedAt as DateTime?,
-        if (serverUpdatedAt != ignore) 6: serverUpdatedAt as DateTime?,
-        if (syncStatus != ignore) 7: syncStatus as String?,
-        if (isDeleted != ignore) 8: isDeleted as bool?,
-        if (version != ignore) 9: version as int?,
-        if (dirty != ignore) 10: dirty as bool?,
+        if (categoryId != ignore) 3: categoryId as String?,
+        if (subcategoryId != ignore) 4: subcategoryId as String?,
+        if (serverId != ignore) 5: serverId as String?,
+        if (clientId != ignore) 6: clientId as String?,
+        if (updatedAt != ignore) 7: updatedAt as DateTime?,
+        if (serverUpdatedAt != ignore) 8: serverUpdatedAt as DateTime?,
+        if (syncStatus != ignore) 9: syncStatus as String?,
+        if (isDeleted != ignore) 10: isDeleted as bool?,
+        if (version != ignore) 11: version as int?,
+        if (dirty != ignore) 12: dirty as bool?,
       });
     } finally {
       q.close();
@@ -865,29 +897,7 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdIsNull() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 3));
-    });
-  }
-
-  QueryBuilder<
-    CategoryRuleCollection,
-    CategoryRuleCollection,
-    QAfterFilterCondition
-  >
-  serverIdIsNotNull() {
-    return QueryBuilder.apply(not(), (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 3));
-    });
-  }
-
-  QueryBuilder<
-    CategoryRuleCollection,
-    CategoryRuleCollection,
-    QAfterFilterCondition
-  >
-  serverIdEqualTo(String? value, {bool caseSensitive = true}) {
+  categoryIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EqualCondition(property: 3, value: value, caseSensitive: caseSensitive),
@@ -900,7 +910,7 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdGreaterThan(String? value, {bool caseSensitive = true}) {
+  categoryIdGreaterThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
@@ -917,7 +927,7 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdGreaterThanOrEqualTo(String? value, {bool caseSensitive = true}) {
+  categoryIdGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
@@ -934,7 +944,7 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdLessThan(String? value, {bool caseSensitive = true}) {
+  categoryIdLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessCondition(property: 3, value: value, caseSensitive: caseSensitive),
@@ -947,7 +957,7 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdLessThanOrEqualTo(String? value, {bool caseSensitive = true}) {
+  categoryIdLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
@@ -964,11 +974,415 @@ extension CategoryRuleCollectionQueryFilter
     CategoryRuleCollection,
     QAfterFilterCondition
   >
-  serverIdBetween(String? lower, String? upper, {bool caseSensitive = true}) {
+  categoryIdBetween(String lower, String upper, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
           property: 3,
+          lower: lower,
+          upper: upper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        StartsWithCondition(
+          property: 3,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EndsWithCondition(
+          property: 3,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        ContainsCondition(
+          property: 3,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        MatchesCondition(
+          property: 3,
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const EqualCondition(property: 3, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  categoryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const GreaterCondition(property: 3, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EqualCondition(property: 4, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdGreaterThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterOrEqualCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdLessThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessCondition(property: 4, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessOrEqualCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdBetween(
+    String lower,
+    String upper, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        BetweenCondition(
+          property: 4,
+          lower: lower,
+          upper: upper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        StartsWithCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EndsWithCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        ContainsCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        MatchesCondition(
+          property: 4,
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const EqualCondition(property: 4, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  subcategoryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const GreaterCondition(property: 4, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const IsNullCondition(property: 5));
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdIsNotNull() {
+    return QueryBuilder.apply(not(), (query) {
+      return query.addFilterCondition(const IsNullCondition(property: 5));
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EqualCondition(property: 5, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdGreaterThan(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdGreaterThanOrEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterOrEqualCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdLessThan(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessCondition(property: 5, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdLessThanOrEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessOrEqualCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    CategoryRuleCollection,
+    CategoryRuleCollection,
+    QAfterFilterCondition
+  >
+  serverIdBetween(String? lower, String? upper, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        BetweenCondition(
+          property: 5,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -986,7 +1400,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 3,
+          property: 5,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1003,7 +1417,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 3,
+          property: 5,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1020,7 +1434,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 3,
+          property: 5,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1037,7 +1451,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 3,
+          property: 5,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1053,7 +1467,7 @@ extension CategoryRuleCollectionQueryFilter
   serverIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 3, value: ''),
+        const EqualCondition(property: 5, value: ''),
       );
     });
   }
@@ -1066,7 +1480,7 @@ extension CategoryRuleCollectionQueryFilter
   serverIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 3, value: ''),
+        const GreaterCondition(property: 5, value: ''),
       );
     });
   }
@@ -1079,7 +1493,7 @@ extension CategoryRuleCollectionQueryFilter
   clientIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 4, value: value, caseSensitive: caseSensitive),
+        EqualCondition(property: 6, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1093,7 +1507,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1110,7 +1524,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1126,7 +1540,7 @@ extension CategoryRuleCollectionQueryFilter
   clientIdLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 4, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 6, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1140,7 +1554,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1157,7 +1571,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 4,
+          property: 6,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1175,7 +1589,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1192,7 +1606,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1209,7 +1623,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1226,7 +1640,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 4,
+          property: 6,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1242,7 +1656,7 @@ extension CategoryRuleCollectionQueryFilter
   clientIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 4, value: ''),
+        const EqualCondition(property: 6, value: ''),
       );
     });
   }
@@ -1255,7 +1669,7 @@ extension CategoryRuleCollectionQueryFilter
   clientIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 4, value: ''),
+        const GreaterCondition(property: 6, value: ''),
       );
     });
   }
@@ -1268,7 +1682,7 @@ extension CategoryRuleCollectionQueryFilter
   updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 5, value: value),
+        EqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1281,7 +1695,7 @@ extension CategoryRuleCollectionQueryFilter
   updatedAtGreaterThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 5, value: value),
+        GreaterCondition(property: 7, value: value),
       );
     });
   }
@@ -1294,7 +1708,7 @@ extension CategoryRuleCollectionQueryFilter
   updatedAtGreaterThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 5, value: value),
+        GreaterOrEqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1306,7 +1720,7 @@ extension CategoryRuleCollectionQueryFilter
   >
   updatedAtLessThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(LessCondition(property: 5, value: value));
+      return query.addFilterCondition(LessCondition(property: 7, value: value));
     });
   }
 
@@ -1318,7 +1732,7 @@ extension CategoryRuleCollectionQueryFilter
   updatedAtLessThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 5, value: value),
+        LessOrEqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1331,7 +1745,7 @@ extension CategoryRuleCollectionQueryFilter
   updatedAtBetween(DateTime lower, DateTime upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 5, lower: lower, upper: upper),
+        BetweenCondition(property: 7, lower: lower, upper: upper),
       );
     });
   }
@@ -1343,7 +1757,7 @@ extension CategoryRuleCollectionQueryFilter
   >
   serverUpdatedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 6));
+      return query.addFilterCondition(const IsNullCondition(property: 8));
     });
   }
 
@@ -1354,7 +1768,7 @@ extension CategoryRuleCollectionQueryFilter
   >
   serverUpdatedAtIsNotNull() {
     return QueryBuilder.apply(not(), (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 6));
+      return query.addFilterCondition(const IsNullCondition(property: 8));
     });
   }
 
@@ -1366,7 +1780,7 @@ extension CategoryRuleCollectionQueryFilter
   serverUpdatedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 6, value: value),
+        EqualCondition(property: 8, value: value),
       );
     });
   }
@@ -1379,7 +1793,7 @@ extension CategoryRuleCollectionQueryFilter
   serverUpdatedAtGreaterThan(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 6, value: value),
+        GreaterCondition(property: 8, value: value),
       );
     });
   }
@@ -1392,7 +1806,7 @@ extension CategoryRuleCollectionQueryFilter
   serverUpdatedAtGreaterThanOrEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 6, value: value),
+        GreaterOrEqualCondition(property: 8, value: value),
       );
     });
   }
@@ -1404,7 +1818,7 @@ extension CategoryRuleCollectionQueryFilter
   >
   serverUpdatedAtLessThan(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(LessCondition(property: 6, value: value));
+      return query.addFilterCondition(LessCondition(property: 8, value: value));
     });
   }
 
@@ -1416,7 +1830,7 @@ extension CategoryRuleCollectionQueryFilter
   serverUpdatedAtLessThanOrEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 6, value: value),
+        LessOrEqualCondition(property: 8, value: value),
       );
     });
   }
@@ -1429,7 +1843,7 @@ extension CategoryRuleCollectionQueryFilter
   serverUpdatedAtBetween(DateTime? lower, DateTime? upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 6, lower: lower, upper: upper),
+        BetweenCondition(property: 8, lower: lower, upper: upper),
       );
     });
   }
@@ -1442,7 +1856,7 @@ extension CategoryRuleCollectionQueryFilter
   syncStatusEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 7, value: value, caseSensitive: caseSensitive),
+        EqualCondition(property: 9, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1456,7 +1870,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1473,7 +1887,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1489,7 +1903,7 @@ extension CategoryRuleCollectionQueryFilter
   syncStatusLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 7, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 9, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1503,7 +1917,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1520,7 +1934,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 7,
+          property: 9,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1538,7 +1952,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1555,7 +1969,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1572,7 +1986,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1589,7 +2003,7 @@ extension CategoryRuleCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 7,
+          property: 9,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1605,7 +2019,7 @@ extension CategoryRuleCollectionQueryFilter
   syncStatusIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 7, value: ''),
+        const EqualCondition(property: 9, value: ''),
       );
     });
   }
@@ -1618,7 +2032,7 @@ extension CategoryRuleCollectionQueryFilter
   syncStatusIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 7, value: ''),
+        const GreaterCondition(property: 9, value: ''),
       );
     });
   }
@@ -1631,7 +2045,7 @@ extension CategoryRuleCollectionQueryFilter
   isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 8, value: value),
+        EqualCondition(property: 10, value: value),
       );
     });
   }
@@ -1644,7 +2058,7 @@ extension CategoryRuleCollectionQueryFilter
   versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 9, value: value),
+        EqualCondition(property: 11, value: value),
       );
     });
   }
@@ -1657,7 +2071,7 @@ extension CategoryRuleCollectionQueryFilter
   versionGreaterThan(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 9, value: value),
+        GreaterCondition(property: 11, value: value),
       );
     });
   }
@@ -1670,7 +2084,7 @@ extension CategoryRuleCollectionQueryFilter
   versionGreaterThanOrEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 9, value: value),
+        GreaterOrEqualCondition(property: 11, value: value),
       );
     });
   }
@@ -1682,7 +2096,9 @@ extension CategoryRuleCollectionQueryFilter
   >
   versionLessThan(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(LessCondition(property: 9, value: value));
+      return query.addFilterCondition(
+        LessCondition(property: 11, value: value),
+      );
     });
   }
 
@@ -1694,7 +2110,7 @@ extension CategoryRuleCollectionQueryFilter
   versionLessThanOrEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 9, value: value),
+        LessOrEqualCondition(property: 11, value: value),
       );
     });
   }
@@ -1707,7 +2123,7 @@ extension CategoryRuleCollectionQueryFilter
   versionBetween(int lower, int upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 9, lower: lower, upper: upper),
+        BetweenCondition(property: 11, lower: lower, upper: upper),
       );
     });
   }
@@ -1720,7 +2136,7 @@ extension CategoryRuleCollectionQueryFilter
   dirtyEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 10, value: value),
+        EqualCondition(property: 12, value: value),
       );
     });
   }
@@ -1779,114 +2195,142 @@ extension CategoryRuleCollectionQuerySortBy
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  sortByServerId({bool caseSensitive = true}) {
+  sortByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(3, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  sortByServerIdDesc({bool caseSensitive = true}) {
+  sortByCategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(3, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  sortByClientId({bool caseSensitive = true}) {
+  sortBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  sortByClientIdDesc({bool caseSensitive = true}) {
+  sortBySubcategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  sortByServerId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(5, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  sortByServerIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(5, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  sortByClientId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(6, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  sortByClientIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(6, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5);
+      return query.addSortBy(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5, sort: Sort.desc);
+      return query.addSortBy(7, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(6);
+      return query.addSortBy(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByServerUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(6, sort: Sort.desc);
+      return query.addSortBy(8, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, caseSensitive: caseSensitive);
+      return query.addSortBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortBySyncStatusDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(9, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(8);
+      return query.addSortBy(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(8, sort: Sort.desc);
+      return query.addSortBy(10, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(9);
+      return query.addSortBy(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(9, sort: Sort.desc);
+      return query.addSortBy(11, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10);
+      return query.addSortBy(12);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   sortByDirtyDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10, sort: Sort.desc);
+      return query.addSortBy(12, sort: Sort.desc);
     });
   }
 }
@@ -1941,114 +2385,142 @@ extension CategoryRuleCollectionQuerySortThenBy
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  thenByServerId({bool caseSensitive = true}) {
+  thenByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(3, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  thenByServerIdDesc({bool caseSensitive = true}) {
+  thenByCategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(3, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  thenByClientId({bool caseSensitive = true}) {
+  thenBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
-  thenByClientIdDesc({bool caseSensitive = true}) {
+  thenBySubcategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  thenByServerId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(5, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  thenByServerIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(5, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  thenByClientId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(6, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
+  thenByClientIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(6, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5);
+      return query.addSortBy(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5, sort: Sort.desc);
+      return query.addSortBy(7, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(6);
+      return query.addSortBy(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByServerUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(6, sort: Sort.desc);
+      return query.addSortBy(8, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, caseSensitive: caseSensitive);
+      return query.addSortBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenBySyncStatusDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(9, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(8);
+      return query.addSortBy(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(8, sort: Sort.desc);
+      return query.addSortBy(10, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(9);
+      return query.addSortBy(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(9, sort: Sort.desc);
+      return query.addSortBy(11, sort: Sort.desc);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10);
+      return query.addSortBy(12);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterSortBy>
   thenByDirtyDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10, sort: Sort.desc);
+      return query.addSortBy(12, sort: Sort.desc);
     });
   }
 }
@@ -2070,58 +2542,72 @@ extension CategoryRuleCollectionQueryWhereDistinct
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
-  distinctByServerId({bool caseSensitive = true}) {
+  distinctByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(3, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
-  distinctByClientId({bool caseSensitive = true}) {
+  distinctBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
+  distinctByServerId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(5, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
+  distinctByClientId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(6, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(5);
+      return query.addDistinctBy(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(6);
+      return query.addDistinctBy(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(7, caseSensitive: caseSensitive);
+      return query.addDistinctBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(8);
+      return query.addDistinctBy(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(9);
+      return query.addDistinctBy(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, CategoryRuleCollection, QAfterDistinct>
   distinctByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(10);
+      return query.addDistinctBy(12);
     });
   }
 }
@@ -2148,57 +2634,71 @@ extension CategoryRuleCollectionQueryProperty1
     });
   }
 
-  QueryBuilder<CategoryRuleCollection, String?, QAfterProperty>
-  serverIdProperty() {
+  QueryBuilder<CategoryRuleCollection, String, QAfterProperty>
+  categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(3);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, String, QAfterProperty>
-  clientIdProperty() {
+  subcategoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, String?, QAfterProperty>
+  serverIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(5);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, String, QAfterProperty>
+  clientIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(6);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, DateTime, QAfterProperty>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(5);
+      return query.addProperty(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, DateTime?, QAfterProperty>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(6);
+      return query.addProperty(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, String, QAfterProperty>
   syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(7);
+      return query.addProperty(9);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, bool, QAfterProperty>
   isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(8);
+      return query.addProperty(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, int, QAfterProperty> versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(9);
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, bool, QAfterProperty> dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 }
@@ -2225,59 +2725,73 @@ extension CategoryRuleCollectionQueryProperty2<R>
     });
   }
 
-  QueryBuilder<CategoryRuleCollection, (R, String?), QAfterProperty>
-  serverIdProperty() {
+  QueryBuilder<CategoryRuleCollection, (R, String), QAfterProperty>
+  categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(3);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, String), QAfterProperty>
-  clientIdProperty() {
+  subcategoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, (R, String?), QAfterProperty>
+  serverIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(5);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, (R, String), QAfterProperty>
+  clientIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(6);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, DateTime), QAfterProperty>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(5);
+      return query.addProperty(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, DateTime?), QAfterProperty>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(6);
+      return query.addProperty(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, String), QAfterProperty>
   syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(7);
+      return query.addProperty(9);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, bool), QAfterProperty>
   isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(8);
+      return query.addProperty(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, int), QAfterProperty>
   versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(9);
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R, bool), QAfterProperty>
   dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 }
@@ -2305,59 +2819,73 @@ extension CategoryRuleCollectionQueryProperty3<R1, R2>
     });
   }
 
-  QueryBuilder<CategoryRuleCollection, (R1, R2, String?), QOperations>
-  serverIdProperty() {
+  QueryBuilder<CategoryRuleCollection, (R1, R2, String), QOperations>
+  categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(3);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, String), QOperations>
-  clientIdProperty() {
+  subcategoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, (R1, R2, String?), QOperations>
+  serverIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(5);
+    });
+  }
+
+  QueryBuilder<CategoryRuleCollection, (R1, R2, String), QOperations>
+  clientIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(6);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, DateTime), QOperations>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(5);
+      return query.addProperty(7);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, DateTime?), QOperations>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(6);
+      return query.addProperty(8);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, String), QOperations>
   syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(7);
+      return query.addProperty(9);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, bool), QOperations>
   isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(8);
+      return query.addProperty(10);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, int), QOperations>
   versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(9);
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<CategoryRuleCollection, (R1, R2, bool), QOperations>
   dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 }
