@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_plus/isar_plus.dart';
 
-import 'package:spendly/core/constants/app_colors.dart';
-import 'package:spendly/core/constants/app_text_styles.dart';
-import 'package:spendly/core/sync/collections/conflict_record.dart';
-import 'package:spendly/core/sync/collections/expense_collection.dart';
-import 'package:spendly/core/sync/collections/loan_collection.dart';
-import 'package:spendly/core/sync/collections/investment_collection.dart';
-import 'package:spendly/core/sync/collections/budget_collection.dart';
-import 'package:spendly/core/sync/collections/category_rule_collection.dart';
-import 'package:spendly/core/sync/isar_database.dart';
-import 'package:spendly/core/sync/sync_engine.dart';
-import 'package:spendly/core/sync/sync_metadata.dart';
+import 'package:fiscora/core/constants/app_colors.dart';
+import 'package:fiscora/core/constants/app_text_styles.dart';
+import 'package:fiscora/core/sync/collections/conflict_record.dart';
+import 'package:fiscora/core/sync/collections/expense_collection.dart';
+import 'package:fiscora/core/sync/collections/loan_collection.dart';
+import 'package:fiscora/core/sync/collections/investment_collection.dart';
+import 'package:fiscora/core/sync/collections/budget_collection.dart';
+import 'package:fiscora/core/sync/collections/category_rule_collection.dart';
+import 'package:fiscora/core/sync/isar_database.dart';
+import 'package:fiscora/core/sync/sync_engine.dart';
+import 'package:fiscora/core/sync/sync_metadata.dart';
 
 class ConflictResolutionScreen extends ConsumerWidget {
   const ConflictResolutionScreen({super.key});

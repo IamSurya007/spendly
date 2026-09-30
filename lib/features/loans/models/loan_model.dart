@@ -26,19 +26,31 @@ class Loan {
   });
 
   factory Loan.fromJson(Map<String, dynamic> json, String docId) {
+    DateTime? parseOptDate(dynamic val) {
+      if (val == null) return null;
+      if (val is Timestamp) return val.toDate();
+      if (val is String) return DateTime.tryParse(val);
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return null;
+    }
+
+    DateTime parseDate(dynamic val) {
+      return parseOptDate(val) ?? DateTime.now();
+    }
+
     return Loan(
       id: docId,
       type: (json['type'] as String? ?? 'given').toLowerCase(),
       name: json['name'] as String? ?? '',
-      principal: (json['principal'] as num).toDouble(),
-      total: (json['total'] as num).toDouble(),
-      interestRate: (json['interestRate'] as num?)?.toDouble() ?? 0.0,
-      repaymentDate: json['repaymentDate'] != null
-          ? (json['repaymentDate'] as Timestamp).toDate()
-          : null,
+      principal: (json['principal'] as num? ?? 0).toDouble(),
+      total: (json['total'] as num? ?? 0).toDouble(),
+      interestRate: (json['interestRate'] as num?)?.toDouble() ??
+          (json['interest_rate'] as num?)?.toDouble() ??
+          0.0,
+      repaymentDate: parseOptDate(json['repaymentDate'] ?? json['repayment_date']),
       status: (json['status'] as String? ?? 'active').toLowerCase(),
       notes: json['notes'] as String? ?? '',
-      createdAt: (json['createdAt'] as Timestamp).toDate(),
+      createdAt: parseDate(json['createdAt']),
     );
   }
 

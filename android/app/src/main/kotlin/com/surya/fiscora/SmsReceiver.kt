@@ -1,4 +1,4 @@
-package com.example.spendly
+package com.surya.fiscora
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -25,19 +25,26 @@ class SmsReceiver : BroadcastReceiver() {
                 try {
                     val pdus = bundle.get("pdus") as Array<*>?
                     if (pdus != null) {
-                        for (i in pdus.indices) {
-                            val format = bundle.getString("format")
-                            val message = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                SmsMessage.createFromPdu(pdus[i] as ByteArray, format)
+                        val format = bundle.getString("format")
+                        val messages = pdus.map { pdu ->
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                SmsMessage.createFromPdu(pdu as ByteArray, format)
                             } else {
-                                SmsMessage.createFromPdu(pdus[i] as ByteArray)
+                                @Suppress("DEPRECATION")
+                                SmsMessage.createFromPdu(pdu as ByteArray)
                             }
-                            val sender = message.originatingAddress ?: ""
-                            val body = message.messageBody ?: ""
+                        }
 
-                            if (!isLikelyTransactionalSender(sender)) continue
+                        // A long SMS arrives as several PDUs. Join the parts per sender so the
+                        // body matches what the inbox stores (and what the scan dedup key uses).
+                        val receivedAtMs = System.currentTimeMillis()
+                        messages.groupBy { it.originatingAddress ?: "" }.forEach { (sender, parts) ->
+                            if (!isLikelyTransactionalSender(sender)) return@forEach
 
-                            val parsed = parseSms(body)
+                            val body = parts.joinToString("") { it.messageBody ?: "" }
+                            val sentAtMs = parts.first().timestampMillis
+
+                            val parsed = parseSms(body, sentAtMs, receivedAtMs)
                             if (parsed != null) {
                                 saveAndNotifyTransaction(context, parsed, sender)
                             }
@@ -73,10 +80,12 @@ class SmsReceiver : BroadcastReceiver() {
         val merchant: String,
         val isDebit: Boolean,
         val date: String,
-        val body: String
+        val body: String,
+        val sentAtMs: Long,
+        val receivedAtMs: Long
     )
 
-    private fun parseSms(body: String): ParsedTxn? {
+    private fun parseSms(body: String, sentAtMs: Long, receivedAtMs: Long): ParsedTxn? {
         val cleanBody = body.lowercase(Locale.ROOT)
 
         // 1. Hard exclude promotional/marketing/offer language first
@@ -168,9 +177,9 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val df = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT)
-        val dateStr = df.format(Date())
+        val dateStr = df.format(Date(receivedAtMs))
 
-        return ParsedTxn(amount, merchant, debit, dateStr, body)
+        return ParsedTxn(amount, merchant, debit, dateStr, body, sentAtMs, receivedAtMs)
     }
 
     private fun cleanMerchantName(name: String): String {
@@ -202,12 +211,14 @@ class SmsReceiver : BroadcastReceiver() {
             "date" to txn.date,
             "body" to txn.body,
             "source" to "sms",
-            "sender" to sender
+            "sender" to sender,
+            "sentAtMs" to txn.sentAtMs,
+            "receivedAtMs" to txn.receivedAtMs
         )
 
         // 1. Save to SharedPreferences so it persists natively for auto-saving
         try {
-            val prefs = context.getSharedPreferences("spendly_sms_prefs", Context.MODE_PRIVATE)
+            val prefs = context.getSharedPreferences("fiscora_sms_prefs", Context.MODE_PRIVATE)
             val existingJson = prefs.getString("pending_transactions", "[]") ?: "[]"
             val jsonArray = JSONArray(existingJson)
 
@@ -219,6 +230,8 @@ class SmsReceiver : BroadcastReceiver() {
                 put("body", txn.body)
                 put("source", "sms")
                 put("sender", sender)
+                put("sentAtMs", txn.sentAtMs)
+                put("receivedAtMs", txn.receivedAtMs)
             }
             jsonArray.put(obj)
             prefs.edit().putString("pending_transactions", jsonArray.toString()).apply()
@@ -234,7 +247,7 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, txn: ParsedTxn, sender: String) {
-        val channelId = "spendly_sms_capture"
+        val channelId = "fiscora_sms_capture"
         val notificationId = System.currentTimeMillis().toInt()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -242,7 +255,7 @@ class SmsReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Spendly Auto-Capture",
+                "Fiscora Auto-Capture",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alerts for incoming transaction SMS"
@@ -259,6 +272,9 @@ class SmsReceiver : BroadcastReceiver() {
             putExtra("date", txn.date)
             putExtra("body", txn.body)
             putExtra("source", "sms")
+            putExtra("sender", sender)
+            putExtra("sentAtMs", txn.sentAtMs)
+            putExtra("receivedAtMs", txn.receivedAtMs)
         }
 
         val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -277,7 +293,7 @@ class SmsReceiver : BroadcastReceiver() {
         val direction = if (txn.isDebit) "debited" else "credited"
         val message = String.format(
             Locale.ROOT,
-            "₹%.2f %s at %s. Saved to Spendly.",
+            "₹%.2f %s at %s. Saved to Fiscora.",
             txn.amount,
             direction,
             txn.merchant

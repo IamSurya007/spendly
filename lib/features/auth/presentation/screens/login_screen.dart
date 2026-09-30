@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:spendly/core/constants/app_colors.dart';
-import 'package:spendly/core/constants/app_text_styles.dart';
-import 'package:spendly/core/constants/app_spacing.dart';
+import 'package:fiscora/core/constants/app_colors.dart';
+import 'package:fiscora/core/constants/app_text_styles.dart';
+import 'package:fiscora/core/constants/app_spacing.dart';
 
 import '../../data/repository/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -162,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Text(
-            'SPENDLY',
+            'FISCORA',
             style: TextStyle(
               fontFamily: 'Inter',
               color: AppColors.accent,

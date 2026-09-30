@@ -7,6 +7,7 @@ import 'core/models/user_profile.dart';
 import 'core/providers/repository_providers.dart';
 import 'core/services/seed_service.dart';
 import 'core/sync/sync_engine.dart';
+import 'features/categories/services/category_providers.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 
 class AuthGate extends ConsumerWidget {
@@ -14,14 +15,20 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = FirebaseAuth.instance.currentUser;
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
+      initialData: currentUser,
       builder: (context, snapshot) {
+        final user = snapshot.data ?? currentUser;
+        if (user != null) {
+          return _AuthenticatedApp(
+            key: ValueKey(user.uid),
+            user: user,
+          );
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SplashScreen();
-        }
-        if (snapshot.hasData && snapshot.data != null) {
-          return _AuthenticatedApp(user: snapshot.data!);
         }
         return const LoginScreen();
       },
@@ -33,19 +40,29 @@ class AuthGate extends ConsumerWidget {
 /// Uses [ConsumerStatefulWidget] so it can read repository providers.
 class _AuthenticatedApp extends ConsumerStatefulWidget {
   final User user;
-  const _AuthenticatedApp({required this.user});
+  const _AuthenticatedApp({super.key, required this.user});
 
   @override
   ConsumerState<_AuthenticatedApp> createState() => _AuthenticatedAppState();
 }
 
+void resetAuthSetup() {
+  _AuthenticatedAppState._completedSetupUid = null;
+}
+
 class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
-  bool _ready = false;
+  late bool _ready;
+  static String? _completedSetupUid;
 
   @override
   void initState() {
     super.initState();
-    _setup();
+    if (_completedSetupUid == widget.user.uid) {
+      _ready = true;
+    } else {
+      _ready = false;
+      _setup();
+    }
   }
 
   Future<void> _setup() async {
@@ -70,6 +87,10 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
     final syncClient = ref.read(syncApiClientProvider);
     SyncEngine.init(syncClient);
 
+    // Give records that only carry an old category name their category ids.
+    // Idempotent and cheap once done.
+    await ref.read(categoryRepositoryProvider).migrateLegacyCategories();
+
     // Seed demo data once (no-op on subsequent launches).
     await SeedService(
       userRepo: userRepo,
@@ -81,6 +102,7 @@ class _AuthenticatedAppState extends ConsumerState<_AuthenticatedApp> {
     // Trigger initial pull/push sync in background
     SyncEngine.instance.triggerSync();
 
+    _completedSetupUid = widget.user.uid;
     if (mounted) setState(() => _ready = true);
   }
 
@@ -117,7 +139,7 @@ class _SplashScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'SPENDLY',
+              'FISCORA',
               style: TextStyle(
                 color: Color(0xFFF5C518),
                 fontSize: 13,

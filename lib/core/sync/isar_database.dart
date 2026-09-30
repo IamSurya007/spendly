@@ -8,6 +8,7 @@ import 'collections/loan_collection.dart';
 import 'collections/investment_collection.dart';
 import 'collections/budget_collection.dart';
 import 'collections/category_rule_collection.dart';
+import 'collections/category_collection.dart';
 import 'collections/user_profile_collection.dart';
 import 'outbox_operation.dart';
 import 'sync_state.dart';
@@ -25,7 +26,7 @@ class IsarDatabase {
     return _instance!;
   }
 
-  static Future<void> init({String? directory, String name = 'spendly'}) async {
+  static Future<void> init({String? directory, String name = 'fiscora'}) async {
     if (_instance != null) return;
 
     final schemas = [
@@ -35,6 +36,7 @@ class IsarDatabase {
       InvestmentCollectionSchema,
       BudgetCollectionSchema,
       CategoryRuleCollectionSchema,
+      CategoryCollectionSchema,
       OutboxOperationSchema,
       SyncStateSchema,
       ConflictRecordSchema,
@@ -56,6 +58,13 @@ class IsarDatabase {
     );
 
     _instance = IsarDatabase._(isarInstance);
+  }
+
+  /// Wipes all local data (used on sign-out so the next account on this
+  /// device starts from a clean state and a full pull).
+  static Future<void> clearAll() async {
+    if (_instance == null) return;
+    await _instance!.isar.writeAsync((isar) => isar.clear());
   }
 
   // Closes and clears the singleton, useful for testing teardown.

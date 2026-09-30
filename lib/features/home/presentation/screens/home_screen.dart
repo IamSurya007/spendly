@@ -14,10 +14,11 @@ import '../../../loans/services/loan_providers.dart';
 import '../../../investments/services/investment_providers.dart';
 import '../../../../core/services/excel_export_service.dart';
 import '../../../accounts/presentation/widgets/accounts_carousel.dart';
+import '../../../ai_chat/screens/spendly_ai_chat_screen.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/quick_actions.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   final User user;
   final VoidCallback onSeeAll;
   final VoidCallback onProfileTap;
@@ -29,6 +30,15 @@ class HomeScreen extends ConsumerWidget {
     required this.onProfileTap,
   });
 
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String _greeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
@@ -37,11 +47,11 @@ class HomeScreen extends ConsumerWidget {
   }
 
   String _firstName() {
-    final name = user.displayName ?? '';
+    final name = widget.user.displayName ?? '';
     return name.split(' ').first;
   }
 
-  Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleExport(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Generating Excel report...'),
@@ -72,7 +82,8 @@ class HomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    super.build(context);
     final expensesAsync = ref.watch(expensesStreamProvider);
 
     return Scaffold(
@@ -109,16 +120,51 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    // AI Assistant Sparkle Button
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SpendlyAiChatScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D1B3E), Color(0xFF3D7FE8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
                     // Avatar — taps to Profile
                     GestureDetector(
-                      onTap: onProfileTap,
+                      onTap: widget.onProfileTap,
                       child: CircleAvatar(
                         radius: 22,
                         backgroundColor: AppColors.inputFill,
-                        backgroundImage: user.photoURL != null
-                            ? NetworkImage(user.photoURL!)
+                        backgroundImage: widget.user.photoURL != null
+                            ? NetworkImage(widget.user.photoURL!)
                             : null,
-                        child: user.photoURL == null
+                        child: widget.user.photoURL == null
                             ? Text(
                                 _firstName().isNotEmpty
                                     ? _firstName()[0].toUpperCase()
@@ -137,7 +183,7 @@ class HomeScreen extends ConsumerWidget {
   
             // ── Balance Card ──────────────────────────
             SliverToBoxAdapter(
-              child: BalanceCard(user: user),
+              child: BalanceCard(user: widget.user),
             ),
   
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
@@ -152,6 +198,12 @@ class HomeScreen extends ConsumerWidget {
             // ── Quick Actions ─────────────────────────
             SliverToBoxAdapter(
               child: QuickActions(
+                onAiChat: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SpendlyAiChatScreen(),
+                  ),
+                ),
                 onAddExpense: () => showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
@@ -184,9 +236,10 @@ class HomeScreen extends ConsumerWidget {
                   backgroundColor: Colors.transparent,
                   builder: (_) => const AddInvestmentSheet(),
                 ),
-                onExport: () => _handleExport(context, ref),
+                onExport: () => _handleExport(context),
               ),
             ),
+
   
             const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
   
@@ -201,7 +254,7 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Text('Recent Transactions', style: AppTextStyles.h2),
                     GestureDetector(
-                      onTap: onSeeAll,
+                      onTap: widget.onSeeAll,
                       child: Text(
                         'See all',
                         style: AppTextStyles.label.copyWith(
@@ -228,10 +281,9 @@ class HomeScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 border: Border.all(color: AppColors.borderLight),
               ),
-              child: expensesAsync.when(
-                skipLoadingOnRefresh: true,
-                skipLoadingOnReload: true,
-                data: (expenses) {
+              child: () {
+                final expenses = expensesAsync.valueOrNull;
+                if (expenses != null) {
                   if (expenses.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -239,8 +291,7 @@ class HomeScreen extends ConsumerWidget {
                         children: [
                           const Text('💸', style: TextStyle(fontSize: 36)),
                           const SizedBox(height: AppSpacing.sm),
-                          Text('No transactions yet',
-                              style: AppTextStyles.h3),
+                          Text('No transactions yet', style: AppTextStyles.h3),
                           const SizedBox(height: 4),
                           Text(
                             'Tap + to add your first expense',
@@ -273,8 +324,15 @@ class HomeScreen extends ConsumerWidget {
                       ]
                     ],
                   );
-                },
-                loading: () => const Padding(
+                }
+                if (expensesAsync.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Text('Could not load transactions',
+                        style: AppTextStyles.bodySmall),
+                  );
+                }
+                return const Padding(
                   padding: EdgeInsets.all(AppSpacing.xl),
                   child: Center(
                     child: CircularProgressIndicator(
@@ -282,13 +340,8 @@ class HomeScreen extends ConsumerWidget {
                       strokeWidth: 2,
                     ),
                   ),
-                ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Text('Could not load transactions',
-                      style: AppTextStyles.bodySmall),
-                ),
-              ),
+                );
+              }(),
             ),
           ),
 

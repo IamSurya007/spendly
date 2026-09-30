@@ -1,4 +1,4 @@
-name: Flutter Build CI
+name: Flutter Build & Release
 
 on:
   push:
@@ -10,6 +10,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create GitHub Releases
 
     steps:
       - name: Checkout code
@@ -20,17 +22,33 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          fi
+
+      - name: Print keystore SHA-1 (for Firebase Console registration)
+        run: |
+          if [ -f "android/app/upload-keystore.jks" ]; then
+            echo "=== KEYSTORE FINGERPRINTS (add SHA-1 to Firebase Console) ==="
+            keytool -list -v \
+              -keystore android/app/upload-keystore.jks \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+              2>/dev/null | grep -E "SHA1|SHA256" || true
+            echo "=== END FINGERPRINTS ==="
+          fi
+
       - name: Create key.properties
         run: |
-          cat <<EOF > android/key.properties
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=../app/upload-keystore.jks
-          EOF
+          if [ -f "android/app/upload-keystore.jks" ]; then
+            printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=../app/upload-keystore.jks\n" \
+              "${{ secrets.KEYSTORE_PASSWORD }}" \
+              "${{ secrets.KEY_PASSWORD }}" \
+              "${{ secrets.KEY_ALIAS }}" > android/key.properties
+          fi
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -43,14 +61,42 @@ jobs:
       - name: Run Flutter Analyzer
         run: flutter analyze --no-fatal-infos
 
+      - name: Get app version from pubspec.yaml
+        id: version
+        run: |
+          RAW_VERSION=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}' | tr -d '\r')
+          TAG_NAME="v${RAW_VERSION}"
+          FILENAME="fiscora-v${RAW_VERSION}.apk"
+          echo "raw=$RAW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          echo "Building version: $RAW_VERSION (Tag: $TAG_NAME, Filename: $FILENAME)"
+
       - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Upload Android APK Artifact
+      - name: Rename APK with version
+        run: |
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/${{ steps.version.outputs.filename }}
+
+      - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: fiscora-${{ steps.version.outputs.tag }}
+          path: build/app/outputs/flutter-apk/${{ steps.version.outputs.filename }}
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Fiscora ${{ steps.version.outputs.tag }}"
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            build/app/outputs/flutter-apk/*.apk
 
 #  build-ios:
 #    name: Build iOS App

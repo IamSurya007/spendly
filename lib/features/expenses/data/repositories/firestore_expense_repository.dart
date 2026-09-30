@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../../core/repositories/i_expense_repository.dart';
+import '../../../categories/models/category.dart';
+import '../../../categories/services/category_resolver.dart';
 import '../../models/expense_model.dart';
 
 /// Firestore implementation of [IExpenseRepository].
@@ -41,6 +43,28 @@ class FirestoreExpenseRepository implements IExpenseRepository {
   }
 
   @override
+  Future<Set<String>> getAllExpenseIds() async {
+    final snap = await _expensesRef.get();
+    return snap.docs.map((d) => d.id).toSet();
+  }
+
+  @override
+  Future<List<Expense>> findExpensesNear({
+    required double amount,
+    required DateTime date,
+    Duration window = const Duration(minutes: 3),
+  }) async {
+    final snap = await _expensesRef
+        .where('amount', isEqualTo: amount)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(date.subtract(window)))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(date.add(window)))
+        .get();
+    return snap.docs
+        .map((d) => Expense.fromJson(d.data() as Map<String, dynamic>, d.id))
+        .toList();
+  }
+
+  @override
   Future<void> deleteExpense(String id) async {
     await _expensesRef.doc(id).delete();
   }
@@ -74,36 +98,45 @@ class FirestoreExpenseRepository implements IExpenseRepository {
     await _expensesRef.doc(expense.id).update(expense.toJson());
   }
 
+
   @override
-  Future<void> setMerchantRule(String merchant, String category) async {
+  Future<void> setMerchantRule(String merchant, CategorySelection selection) async {
     final docName = merchant.toLowerCase().trim();
     if (docName.isEmpty) return;
     await _merchantRulesRef.doc(docName).set({
       'merchant': merchant.trim(),
-      'category': category,
+      'categoryId': selection.categoryId,
+      'subcategoryId': selection.subcategoryId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
   @override
-  Future<String?> getMerchantRule(String merchant) async {
+  Future<CategorySelection?> getMerchantRule(String merchant) async {
     final docName = merchant.toLowerCase().trim();
     if (docName.isEmpty) return null;
     final doc = await _merchantRulesRef.doc(docName).get();
     if (!doc.exists) return null;
-    final data = doc.data() as Map<String, dynamic>?;
-    return data?['category'] as String?;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final categoryId = data['categoryId'] as String?;
+    if (categoryId == null || categoryId.isEmpty) {
+      return CategoryResolver.fromLegacyName(data['category'] as String? ?? '');
+    }
+    return CategorySelection(categoryId, data['subcategoryId'] as String? ?? '');
   }
 
   @override
-  Future<void> updateExpensesCategory(String merchant, String newCategory) async {
+  Future<void> updateExpensesCategory(String merchant, CategorySelection selection) async {
     if (merchant.trim().isEmpty) return;
     final snap = await _expensesRef.where('merchant', isEqualTo: merchant.trim()).get();
     if (snap.docs.isEmpty) return;
-    
+
     final batch = _db.batch();
     for (final doc in snap.docs) {
-      batch.update(doc.reference, {'category': newCategory});
+      batch.update(doc.reference, {
+        'categoryId': selection.categoryId,
+        'subcategoryId': selection.subcategoryId,
+      });
     }
     await batch.commit();
   }

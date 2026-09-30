@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spendly/core/sync/conflict_resolver.dart';
+import 'package:fiscora/core/sync/conflict_resolver.dart';
 
 void main() {
   group('ConflictResolver Tests', () {

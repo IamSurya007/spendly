@@ -11,6 +11,7 @@ class QuickActions extends StatelessWidget {
   final VoidCallback onAddInvestment;
   final VoidCallback onScanSms;
   final VoidCallback onExport;
+  final VoidCallback? onAiChat;
 
   const QuickActions({
     super.key,
@@ -20,6 +21,7 @@ class QuickActions extends StatelessWidget {
     required this.onAddInvestment,
     required this.onScanSms,
     required this.onExport,
+    this.onAiChat,
   });
 
   @override
@@ -29,6 +31,13 @@ class QuickActions extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
       child: Row(
         children: [
+          if (onAiChat != null)
+            _ActionChip(
+              icon: '✨',
+              label: 'AI Assistant',
+              onTap: onAiChat!,
+              isHighlight: true,
+            ),
           _ActionChip(
             icon: '➕',
             label: 'Add Expense',
@@ -63,17 +72,20 @@ class QuickActions extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _ActionChip extends StatelessWidget {
   final String icon;
   final String label;
   final VoidCallback onTap;
+  final bool isHighlight;
 
   const _ActionChip({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.isHighlight = false,
   });
 
   @override
@@ -87,12 +99,25 @@ class _ActionChip extends StatelessWidget {
           vertical: AppSpacing.sm + 2,
         ),
         decoration: BoxDecoration(
-          color: AppColors.cardSurface,
+          gradient: isHighlight
+              ? const LinearGradient(
+                  colors: [Color(0xFF0D1B3E), Color(0xFF3D7FE8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isHighlight ? null : AppColors.cardSurface,
           borderRadius: BorderRadius.circular(AppSpacing.chipRadius + 2),
-          border: Border.all(color: AppColors.borderLight),
+          border: Border.all(
+            color: isHighlight
+                ? AppColors.accent.withOpacity(0.5)
+                : AppColors.borderLight,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryNavy.withOpacity(0.04),
+              color: isHighlight
+                  ? AppColors.accent.withOpacity(0.2)
+                  : AppColors.primaryNavy.withOpacity(0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -103,13 +128,17 @@ class _ActionChip extends StatelessWidget {
           children: [
             Text(icon, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 6),
-            Text(label, style: AppTextStyles.label.copyWith(
-              color: AppColors.primaryNavy,
-              fontWeight: FontWeight.w600,
-            )),
+            Text(
+              label,
+              style: AppTextStyles.label.copyWith(
+                color: isHighlight ? Colors.white : AppColors.primaryNavy,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+

@@ -30,11 +30,10 @@ class SeedService {
     final alreadySeeded = await _userRepo.isSeeded();
     if (alreadySeeded) return;
 
-    // Seed only the empty budget structure with default limits so category progress bars function correctly.
-    // We skip seeding mock expenses, loans, and investments so the user starts with a clean slate
-    // and populates it via SMS scans or manual entry.
-    await _seedBudget();
-
+    // Nothing is seeded: the user starts with a clean slate and populates it
+    // via SMS scans or manual entry. (Default budgets used to be seeded here,
+    // under a 'yyyy-MM' month the budget screen never reads; after every
+    // reinstall they were re-created and conflicted with the server copies.)
     await _userRepo.markSeeded();
   }
 
@@ -284,23 +283,5 @@ class SeedService {
     for (final inv in investments) {
       await _investmentRepo.addInvestment(inv);
     }
-  }
-
-  Future<void> _seedBudget() async {
-    final now = DateTime.now();
-    final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-
-    await _expenseRepo.setBudgetForMonth(month, {
-      'Rent': {'limit': 15000.0, 'spent': 0.0},
-      'Groceries': {'limit': 8000.0, 'spent': 0.0},
-      'Restaurants': {'limit': 5000.0, 'spent': 0.0},
-      'Auto / Cab': {'limit': 3000.0, 'spent': 0.0},
-      'CC Bill': {'limit': 25000.0, 'spent': 0.0},
-      'RD / SIP': {'limit': 10000.0, 'spent': 0.0},
-      'OTT / Subscriptions': {'limit': 1000.0, 'spent': 0.0},
-      'Friends': {'limit': 4000.0, 'spent': 0.0},
-      'Family': {'limit': 10000.0, 'spent': 0.0},
-      'Other': {'limit': 5000.0, 'spent': 0.0},
-    });
   }
 }

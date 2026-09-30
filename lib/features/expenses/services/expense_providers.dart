@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/repository_providers.dart';
 import '../../../core/repositories/i_expense_repository.dart';
+import '../../categories/models/category.dart';
 import '../models/expense_model.dart';
 
 /// Real-time stream of all expenses, newest first.
@@ -41,16 +42,16 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
     await _repo.deleteExpense(id);
   }
 
-  Future<void> setMerchantRule(String merchant, String category) async {
+  Future<void> setMerchantRule(String merchant, CategorySelection selection) async {
     try {
-      await _repo.setMerchantRule(merchant, category);
+      await _repo.setMerchantRule(merchant, selection);
     } catch (_) {}
   }
 
-  Future<void> updateExpensesCategory(String merchant, String newCategory) async {
+  Future<void> updateExpensesCategory(String merchant, CategorySelection selection) async {
     state = const AsyncValue.loading();
     try {
-      await _repo.updateExpensesCategory(merchant, newCategory);
+      await _repo.updateExpensesCategory(merchant, selection);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -68,6 +69,19 @@ class ExpenseNotifier extends StateNotifier<AsyncValue<void>> {
       updatedCategoryData['limit'] = limit;
 
       currentBudget[category] = updatedCategoryData;
+      await _repo.setBudgetForMonth(month, currentBudget);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> deleteBudgetCategory(String category) async {
+    state = const AsyncValue.loading();
+    try {
+      const month = 'all';
+      final currentBudget = await _repo.getBudgetForMonth(month);
+      currentBudget.remove(category);
       await _repo.setBudgetForMonth(month, currentBudget);
       state = const AsyncValue.data(null);
     } catch (e, st) {

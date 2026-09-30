@@ -1,16 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/services/sms_parser_service.dart';
-import '../../../core/services/sms_account_resolver.dart';
-import '../../accounts/models/account_model.dart';
-import '../models/expense_model.dart';
-import '../services/expense_providers.dart';
+import '../../../core/services/sms_import_service.dart';
+import '../../../core/sync/sync_engine.dart';
 import '../../../core/providers/repository_providers.dart';
+
+enum _ScanPhase { syncing, scanning, done }
 
 class SmsScanSheet extends ConsumerStatefulWidget {
   const SmsScanSheet({super.key});
@@ -23,8 +24,17 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
   final _smsService = SmsParserService();
   List<ParsedSms> _detectedTransactions = [];
   Set<int> _selectedIndices = {};
-  bool _isLoading = true;
+  _ScanPhase _phase = _ScanPhase.syncing;
   bool _permissionDenied = false;
+  bool _syncIncomplete = false;
+  String? _error;
+
+  bool get _isLoading => _phase != _ScanPhase.done;
+
+  SmsImportService get _importer => SmsImportService(
+        ref.read(expenseRepositoryProvider),
+        ref.read(accountRepositoryProvider),
+      );
 
   @override
   void initState() {
@@ -34,45 +44,53 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
 
   Future<void> _scanInbox() async {
     setState(() {
-      _isLoading = true;
+      _phase = _ScanPhase.syncing;
       _permissionDenied = false;
+      _syncIncomplete = false;
+      _error = null;
     });
 
     final permissionsGranted = await _smsService.requestPermissions();
     if (!permissionsGranted) {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _phase = _ScanPhase.done;
           _permissionDenied = true;
         });
       }
       return;
     }
 
-    final parsedList = await _smsService.scanInbox(limit: 500);
-    
-    // Filter out already imported transactions
-    final existingExpenses = ref.read(expensesStreamProvider).valueOrNull ?? [];
-    final existingIds = existingExpenses.map((e) => e.id).toSet();
-    
-    final List<ParsedSms> uniqueParsedList = [];
-    final uuid = const Uuid();
-    
-    for (final txn in parsedList) {
-      final txnId = uuid.v5(
-        Uuid.NAMESPACE_URL,
-        'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
-      );
-      if (!existingIds.contains(txnId)) {
-        uniqueParsedList.add(txn);
-      }
+    // Dedup is checked against local data, so it must be complete first.
+    // After a reinstall the local database starts empty and fills from the
+    // server; scanning before that finishes would offer every old SMS again.
+    bool synced;
+    try {
+      synced = await SyncEngine.instance.syncNow().timeout(const Duration(seconds: 90));
+    } on TimeoutException {
+      synced = false;
     }
+    if (!mounted) return;
+    setState(() {
+      _syncIncomplete = !synced;
+      _phase = _ScanPhase.scanning;
+    });
 
-    if (mounted) {
+    try {
+      final parsedList = await _smsService.scanInbox(limit: 500);
+      final uniqueParsedList = await _importer.filterNew(parsedList);
+      if (!mounted) return;
       setState(() {
         _detectedTransactions = uniqueParsedList;
         _selectedIndices = Set.from(List.generate(uniqueParsedList.length, (i) => i));
-        _isLoading = false;
+        _phase = _ScanPhase.done;
+      });
+    } on SmsScanException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _detectedTransactions = [];
+        _error = e.message;
+        _phase = _ScanPhase.done;
       });
     }
   }
@@ -81,84 +99,35 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
     if (_selectedIndices.isEmpty) return;
 
     final selectedTxns = _selectedIndices.map((i) => _detectedTransactions[i]).toList();
-    final count = selectedTxns.length;
+    final messenger = ScaffoldMessenger.of(context);
+    final importer = _importer;
 
-    // Close modal immediately so UI response is instant (<10ms)
+    // Close modal immediately; the writes run in the background.
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Imported $count transaction${count > 1 ? "s" : ""} from SMS!'),
-        backgroundColor: AppColors.incomeGreen,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 4),
-      ),
-    );
-
-    // Process database writes & account auto-creations asynchronously in background
     Future.microtask(() async {
-      final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
-      final expenseRepo = ref.read(expenseRepositoryProvider);
-      final accountRepo = ref.read(accountRepositoryProvider);
-      final resolver = SmsAccountResolver(accountRepo);
-
+      var imported = 0;
       for (final txn in selectedTxns) {
-        final accountId = await resolver.resolveAccountId(txn);
-        String? ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
-        
-        String guessedCategory = ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other');
-        if (ruleCategory == null) {
-          final cleanMerchant = txn.merchant.toLowerCase();
-          if (cleanMerchant.contains('rent')) {
-            guessedCategory = 'Rent';
-          } else if (cleanMerchant.contains('swiggy') || cleanMerchant.contains('zomato') || cleanMerchant.contains('dining') || cleanMerchant.contains('restaurant') || cleanMerchant.contains('eats')) {
-            guessedCategory = 'Restaurants';
-          } else if (cleanMerchant.contains('grocer') || cleanMerchant.contains('jiomart') || cleanMerchant.contains('blinkit') || cleanMerchant.contains('bigbasket')) {
-            guessedCategory = 'Groceries';
-          } else if (cleanMerchant.contains('coffee') || cleanMerchant.contains('starbucks') || cleanMerchant.contains('chai')) {
-            guessedCategory = 'Coffee & Snacks';
-          } else if (cleanMerchant.contains('electricity') || cleanMerchant.contains('power')) {
-            guessedCategory = 'Electricity';
-          } else if (cleanMerchant.contains('water')) {
-            guessedCategory = 'Water Bill';
-          } else if (cleanMerchant.contains('gas') || cleanMerchant.contains('indane') || cleanMerchant.contains('hp')) {
-            guessedCategory = 'Gas';
-          } else if (cleanMerchant.contains('wifi') || cleanMerchant.contains('internet') || cleanMerchant.contains('actfibernet') || cleanMerchant.contains('broadband')) {
-            guessedCategory = 'Internet';
-          } else if (cleanMerchant.contains('ola') || cleanMerchant.contains('uber') || cleanMerchant.contains('cab') || cleanMerchant.contains('auto')) {
-            guessedCategory = 'Auto / Cab';
-          } else if (cleanMerchant.contains('metro') || cleanMerchant.contains('bus') || cleanMerchant.contains('train') || cleanMerchant.contains('irctc')) {
-            guessedCategory = 'Public Transport';
-          } else if (cleanMerchant.contains('fuel') || cleanMerchant.contains('petrol') || cleanMerchant.contains('shell') || cleanMerchant.contains('iocl') || cleanMerchant.contains('hpcl')) {
-            guessedCategory = 'Fuel';
-          } else if (cleanMerchant.contains('cc bill') || cleanMerchant.contains('credit card') || cleanMerchant.contains('card bill')) {
-            guessedCategory = 'CC Bill';
-          } else if (cleanMerchant.contains('splitwise')) {
-            guessedCategory = 'Splitwise';
-          }
-        }
-
-        final txnId = const Uuid().v5(
-          Uuid.NAMESPACE_URL,
-          'spendly:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
-        );
-
-        final expense = Expense(
-          id: txnId,
-          amount: txn.isDebit ? txn.amount : -txn.amount,
-          category: guessedCategory,
-          note: 'Imported from SMS: "${txn.body.length > 30 ? '${txn.body.substring(0, 30)}...' : txn.body}"',
-          date: txn.date,
-          method: txn.accountType == AccountType.credit_card ? 'card' : (txn.accountType == AccountType.cash ? 'cash' : 'upi'),
-          source: 'sms',
-          merchant: txn.merchant,
-          accountId: accountId,
-          createdAt: DateTime.now(),
-        );
-
-        await expenseNotifier.addExpense(expense);
+        final body = txn.body.length > 30 ? '${txn.body.substring(0, 30)}...' : txn.body;
+        final saved = await importer.import(txn, note: 'Imported from SMS: "$body"');
+        if (saved != null) imported++;
       }
+
+      final skipped = selectedTxns.length - imported;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            imported == 0
+                ? 'Nothing new to import — these transactions are already saved.'
+                : 'Imported $imported transaction${imported == 1 ? '' : 's'} from SMS'
+                    '${skipped > 0 ? ' ($skipped already saved)' : ''}',
+          ),
+          backgroundColor: imported == 0 ? AppColors.primaryNavy : AppColors.incomeGreen,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     });
   }
 
@@ -215,6 +184,24 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
           ),
           const SizedBox(height: AppSpacing.md),
 
+          if (_syncIncomplete && !_isLoading && !_permissionDenied)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(
+                AppSpacing.screenPadding, 0, AppSpacing.screenPadding, AppSpacing.md,
+              ),
+              padding: const EdgeInsets.all(AppSpacing.sm + 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Couldn\'t reach the server to check your saved transactions. '
+                'Some of these may already be in Fiscora. Check before importing.',
+                style: AppTextStyles.caption.copyWith(color: const Color(0xFF8A4B00)),
+              ),
+            ),
+
           Expanded(
             child: _buildBody(),
           ),
@@ -251,8 +238,42 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.accent),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: AppColors.accent),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              _phase == _ScanPhase.syncing
+                  ? 'Syncing your saved transactions…'
+                  : 'Scanning your SMS inbox…',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.mutedText),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.expenseRed),
+            const SizedBox(height: AppSpacing.md),
+            Text('Could not scan SMS', style: AppTextStyles.h2),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.mutedText),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            OutlinedButton(onPressed: _scanInbox, child: const Text('Try Again')),
+          ],
+        ),
       );
     }
 
@@ -267,7 +288,7 @@ class _SmsScanSheetState extends ConsumerState<SmsScanSheet> {
             Text('SMS Permission Required', style: AppTextStyles.h2),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Spendly needs SMS permission to auto-detect and sync your bank transaction history.',
+              'Fiscora needs SMS permission to auto-detect and sync your bank transaction history.',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(color: AppColors.mutedText),
             ),

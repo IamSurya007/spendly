@@ -7,6 +7,13 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../accounts/services/account_providers.dart';
+import '../../../core/providers/repository_providers.dart';
+import '../../categories/models/category.dart';
+import '../../categories/services/category_providers.dart';
+import '../../categories/services/category_resolver.dart';
+import '../../categories/services/merchant_categorizer.dart';
+import '../../categories/widgets/category_icon.dart';
+import '../../categories/widgets/category_picker_sheet.dart';
 import '../models/expense_model.dart';
 import '../services/expense_providers.dart';
 
@@ -40,7 +47,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   final _merchantController = TextEditingController();
   final _amountFocus = FocusNode();
 
-  String? _selectedCategory;
+  CategorySelection? _selection;
   String? _selectedAccountId;
   String _selectedMethod = 'upi';
   DateTime _selectedDate = DateTime.now();
@@ -64,7 +71,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       _amountController.text = absAmount == absAmount.toInt() ? absAmount.toInt().toString() : absAmount.toString();
       _noteController.text = exp.note;
       _merchantController.text = exp.merchant;
-      _selectedCategory = exp.category.isNotEmpty ? exp.category : null;
+      _selection = CategorySelection(exp.categoryId, exp.subcategoryId);
       _selectedAccountId = exp.accountId;
       _selectedDate = exp.date;
       _selectedMethod = _methods.contains(exp.method.toLowerCase()) ? exp.method.toLowerCase() : 'upi';
@@ -82,7 +89,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         _merchantController.text = widget.prefilledMerchant!;
       }
       if (widget.prefilledCategory != null) {
-        _selectedCategory = widget.prefilledCategory!;
+        _selection = CategoryResolver.fromLegacyName(widget.prefilledCategory!);
       }
       if (widget.prefilledMethod != null && _methods.contains(widget.prefilledMethod!.toLowerCase())) {
         _selectedMethod = widget.prefilledMethod!.toLowerCase();
@@ -127,13 +134,24 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     final cleanMerchant = _merchantController.text.trim();
     final expenseNotifier = ref.read(expenseNotifierProvider.notifier);
     final targetAccountId = _selectedAccountId ?? 'default_bank';
+    final registry = ref.read(categoryRegistryProvider);
+
+    // No explicit choice: merchant rule, then keyword guess, then default.
+    var selection = _selection;
+    if (selection == null && cleanMerchant.isNotEmpty) {
+      final rule = await ref.read(expenseRepositoryProvider).getMerchantRule(cleanMerchant);
+      selection = rule ?? MerchantCategorizer.categorize(cleanMerchant);
+    }
+    selection ??= CategoryResolver.defaultFor(isCredit: _isCredit);
+    final label = registry.label(selection.categoryId, selection.subcategoryId, isCredit: _isCredit);
 
     final oldExpense = widget.expense;
     if (oldExpense != null) {
       // EDIT MODE
       final updatedExpense = oldExpense.copyWith(
         amount: savedAmount,
-        category: _selectedCategory ?? '',
+        categoryId: selection.categoryId,
+        subcategoryId: selection.subcategoryId,
         note: _noteController.text.trim(),
         date: _selectedDate,
         method: _selectedMethod,
@@ -142,17 +160,19 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         isCountedAsSpend: _isCountedAsSpend,
       );
 
-      final categoryChanged = oldExpense.category != (_selectedCategory ?? '');
+      final categoryChanged = _selection != null &&
+          (oldExpense.categoryId != selection.categoryId ||
+              oldExpense.subcategoryId != selection.subcategoryId);
       bool applyToAll = false;
 
-      if (categoryChanged && cleanMerchant.isNotEmpty && _selectedCategory != null) {
+      if (categoryChanged && cleanMerchant.isNotEmpty) {
         // Show dialog asking to apply categorization rule to all matching transactions
         applyToAll = await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: const Text('Apply rule to all?'),
                 content: Text(
-                  'Do you want to update all existing transactions at "$cleanMerchant" to "$_selectedCategory"?',
+                  'Do you want to update all existing transactions at "$cleanMerchant" to "$label"?',
                   style: AppTextStyles.bodyMedium,
                 ),
                 actions: [
@@ -176,12 +196,12 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
       // Perform database mutations
       if (applyToAll) {
-        expenseNotifier.updateExpensesCategory(cleanMerchant, _selectedCategory ?? '');
+        expenseNotifier.updateExpensesCategory(cleanMerchant, selection);
       }
-      
+
       // Save auto-categorizer rule for future captures
       if (categoryChanged && cleanMerchant.isNotEmpty) {
-        expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
+        expenseNotifier.setMerchantRule(cleanMerchant, selection);
       }
 
       expenseNotifier.updateExpense(updatedExpense);
@@ -192,7 +212,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
           SnackBar(
             content: Text(
               applyToAll
-                  ? 'Updated all transactions at "$cleanMerchant" to $_selectedCategory'
+                  ? 'Updated all transactions at "$cleanMerchant" to $label'
                   : 'Transaction updated successfully',
             ),
             backgroundColor: AppColors.primaryNavy,
@@ -208,7 +228,9 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       final expense = Expense(
         id: const Uuid().v4(),
         amount: savedAmount,
-        category: _selectedCategory ?? '',
+        category: '',
+        categoryId: selection.categoryId,
+        subcategoryId: selection.subcategoryId,
         note: _noteController.text.trim(),
         date: _selectedDate,
         method: _selectedMethod,
@@ -218,9 +240,9 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         isCountedAsSpend: _isCountedAsSpend,
       );
 
-      // Save a category rule for this merchant on manual creation too if entered!
-      if (cleanMerchant.isNotEmpty) {
-        expenseNotifier.setMerchantRule(cleanMerchant, _selectedCategory ?? '');
+      // Remember an explicit choice for this merchant (not a guess).
+      if (cleanMerchant.isNotEmpty && _selection != null) {
+        expenseNotifier.setMerchantRule(cleanMerchant, selection);
       }
 
       expenseNotifier.addExpense(expense);
@@ -230,7 +252,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '₹${NumberFormat('#,##,###').format(amount)} ${_isCredit ? "received" : "spent"} added${_selectedCategory != null ? " to $_selectedCategory" : ""}',
+              '₹${NumberFormat('#,##,###').format(amount)} ${_isCredit ? "received" : "spent"} added to $label',
             ),
             backgroundColor: AppColors.primaryNavy,
             behavior: SnackBarBehavior.floating,
@@ -262,92 +284,13 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  void _openCategoryPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderLight,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text('Select Category', style: AppTextStyles.h2),
-              const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.1,
-                  ),
-                  itemCount: ExpenseCategories.all.length,
-                  itemBuilder: (gridCtx, index) {
-                    final cat = ExpenseCategories.all[index];
-                    final isSelected = _selectedCategory == cat.name;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedCategory = cat.name);
-                        Navigator.pop(ctx);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryNavy.withOpacity(0.08) : AppColors.inputFill,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primaryNavy : AppColors.borderLight,
-                            width: isSelected ? 1.5 : 1.0,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(cat.emoji, style: const TextStyle(fontSize: 26)),
-                            const SizedBox(height: 6),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                cat.name,
-                                textAlign: TextAlign.center,
-                                style: AppTextStyles.caption.copyWith(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? AppColors.primaryNavy : AppColors.primaryNavy.withOpacity(0.8),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+  Future<void> _openCategoryPicker() async {
+    final picked = await showCategoryPicker(
+      context,
+      initial: _selection,
+      kind: _isCredit ? CategoryKind.income : CategoryKind.expense,
     );
+    if (picked != null && mounted) setState(() => _selection = picked);
   }
 
   @override
@@ -521,14 +464,14 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Category Selection (Optional)
+          // Category Selection (Optional — defaults to Miscellaneous / Income)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Category (Optional)', style: AppTextStyles.label),
-              if (_selectedCategory != null)
+              Text('Category', style: AppTextStyles.label),
+              if (_selection != null)
                 GestureDetector(
-                  onTap: () => setState(() => _selectedCategory = null),
+                  onTap: () => setState(() => _selection = null),
                   child: Text(
                     'Clear',
                     style: AppTextStyles.caption.copyWith(
@@ -540,81 +483,66 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          _selectedCategory == null
-              ? Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: _openCategoryPicker,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.inputFill,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.borderLight,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.add_circle_outline_rounded,
-                              size: 18, color: AppColors.mutedText),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Add Category',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.mutedText,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: _openCategoryPicker,
+              child: () {
+                final registry = ref.watch(categoryRegistryProvider);
+                final sel = _selection;
+                if (sel == null) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputFill,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderLight),
                     ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add_circle_outline_rounded,
+                            size: 18, color: AppColors.mutedText),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Choose Category',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.mutedText,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final leaf = registry.leaf(sel.categoryId, sel.subcategoryId, isCredit: _isCredit);
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
+                  decoration: BoxDecoration(
+                    color: leaf.colorValue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: leaf.colorValue.withValues(alpha: 0.3)),
                   ),
-                )
-              : () {
-                  final cat = ExpenseCategories.all.firstWhere(
-                    (c) => c.name == _selectedCategory,
-                    orElse: () => const ExpenseCategory(
-                      name: 'Uncategorized',
-                      icon: Icons.help_outline,
-                      emoji: '❓',
-                    ),
-                  );
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: _openCategoryPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryNavy.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.primaryNavy.withOpacity(0.12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(cat.emoji, style: const TextStyle(fontSize: 18)),
-                            const SizedBox(width: 8),
-                            Text(
-                              cat.name,
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.primaryNavy,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.edit_rounded,
-                                size: 14, color: AppColors.primaryNavy),
-                          ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CategoryIcon(category: leaf, size: 30),
+                      const SizedBox(width: 10),
+                      Text(
+                        registry.label(sel.categoryId, sel.subcategoryId, isCredit: _isCredit),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.primaryNavy,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  );
-                }(),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.edit_rounded, size: 14, color: AppColors.primaryNavy),
+                    ],
+                  ),
+                );
+              }(),
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
 
           // Merchant + Note row
@@ -816,10 +744,14 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
       onTap: () {
         setState(() {
           _isCredit = isCredit;
-          if (_isCredit) {
-            _selectedCategory = 'Other';
-          } else {
-            _selectedCategory = 'Spends';
+          // An expense category makes no sense on income and vice versa.
+          final sel = _selection;
+          if (sel != null) {
+            final kind = ref.read(categoryRegistryProvider).categoryOrFallback(sel.categoryId).kind;
+            if (kind != CategoryKind.transfer &&
+                (kind == CategoryKind.income) != _isCredit) {
+              _selection = null;
+            }
           }
         });
       },

@@ -1,4 +1,4 @@
-// Basic smoke test for Spendly.
+// Basic smoke test for Fiscora.
 // Full integration tests will be added in Week 8.
 
 import 'package:flutter_test/flutter_test.dart';

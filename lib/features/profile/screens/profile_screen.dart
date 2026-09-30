@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -11,7 +12,11 @@ import '../../../features/auth/data/repository/auth_repository_impl.dart';
 import '../../../features/expenses/services/expense_providers.dart';
 import '../../../features/loans/services/loan_providers.dart';
 import '../../../features/investments/services/investment_providers.dart';
+import '../../../splash_screen.dart';
 import '../../auth/presentation/screens/conflict_resolution_screen.dart';
+import '../../categories/screens/manage_categories_screen.dart';
+import '../../../core/sync/isar_database.dart';
+import '../../../core/sync/sync_engine.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final User user;
@@ -24,11 +29,26 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _smsGranted = false;
+  String _appVersion = 'v1.0.3';
 
   @override
   void initState() {
     super.initState();
     _checkSmsPermission();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${info.version} (Build ${info.buildNumber})';
+        });
+      }
+    } catch (_) {
+      // Fallback to default
+    }
   }
 
   Future<void> _checkSmsPermission() async {
@@ -66,6 +86,88 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       }
     }
+  }
+
+  Future<void> _showSignOutDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          'Sign Out',
+          style: AppTextStyles.h2.copyWith(color: AppColors.primaryNavy),
+        ),
+        content: Text(
+          'Are you sure you want to sign out of Fiscora?',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.primaryNavy,
+            fontSize: 14,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.label.copyWith(color: AppColors.mutedText),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.expenseRed,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Sign Out',
+              style: AppTextStyles.label.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Push local changes first; local data is wiped on sign-out.
+    await SyncEngine.instance.syncNow();
+    final pending = await SyncEngine.instance.pendingOutboxCount();
+    if (pending > 0 && context.mounted) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Unsynced changes'),
+          content: Text(
+            '$pending change${pending == 1 ? '' : 's'} could not be uploaded yet '
+            '(are you offline?). Signing out now will lose them.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Stay signed in')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sign out anyway', style: TextStyle(color: AppColors.expenseRed)),
+            ),
+          ],
+        ),
+      );
+      if (discard != true) return;
+    }
+
+    resetAuthSetup();
+    await IsarDatabase.clearAll();
+    await AuthRepositoryImpl().signOut();
   }
 
   @override
@@ -289,6 +391,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const Divider(height: 1, color: AppColors.borderLight),
                   _MenuItem(
+                    icon: Icons.category_rounded,
+                    label: 'Categories',
+                    sublabel: 'Add, rename, recolour or hide categories',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, color: AppColors.borderLight),
+                  _MenuItem(
                     icon: Icons.table_chart_rounded,
                     label: 'Export to Excel',
                     sublabel: 'Download all expenses, loans & investments',
@@ -341,8 +455,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               child: _MenuItem(
                 icon: Icons.info_outline_rounded,
-                label: 'About Spendly',
-                sublabel: 'v1.0.0',
+                label: 'About Fiscora',
+                sublabel: _appVersion,
                 onTap: () {},
               ),
             ),
@@ -363,9 +477,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     'Sign Out',
                     style: AppTextStyles.buttonText.copyWith(color: AppColors.expenseRed),
                   ),
-                  onPressed: () async {
-                    await AuthRepositoryImpl().signOut();
-                  },
+                  onPressed: () => _showSignOutDialog(context),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.expenseRed, width: 1),
                     shape: RoundedRectangleBorder(

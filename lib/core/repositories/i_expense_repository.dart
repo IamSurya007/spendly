@@ -1,3 +1,4 @@
+import '../../features/categories/models/category.dart';
 import '../../features/expenses/models/expense_model.dart';
 
 /// Contract for all expense + budget data operations.
@@ -13,6 +14,19 @@ abstract interface class IExpenseRepository {
   Stream<List<Expense>> watchExpenses();
 
   Future<void> addExpense(Expense expense);
+
+  /// Ids of every locally stored expense, INCLUDING soft-deleted ones, so a
+  /// transaction the user deleted is not offered for re-import.
+  Future<Set<String>> getAllExpenseIds();
+
+  /// Expenses with the same signed [amount] within [window] of [date]
+  /// (deleted rows included). Used to recognise SMS imported under an older
+  /// id scheme.
+  Future<List<Expense>> findExpensesNear({
+    required double amount,
+    required DateTime date,
+    Duration window = const Duration(minutes: 3),
+  });
   Future<void> updateExpense(Expense expense);
   Future<void> deleteExpense(String id);
 
@@ -24,7 +38,7 @@ abstract interface class IExpenseRepository {
   );
 
   /// Auto-categorization rule operations
-  Future<void> setMerchantRule(String merchant, String category);
-  Future<String?> getMerchantRule(String merchant);
-  Future<void> updateExpensesCategory(String merchant, String newCategory);
+  Future<void> setMerchantRule(String merchant, CategorySelection selection);
+  Future<CategorySelection?> getMerchantRule(String merchant);
+  Future<void> updateExpensesCategory(String merchant, CategorySelection selection);
 }

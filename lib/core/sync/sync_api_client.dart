@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class SyncApiClient {
   final Dio _dio;
 
-  SyncApiClient({Dio? dio, String baseUrl = 'https://spendly-service.onrender.com'})
+  SyncApiClient({Dio? dio, String baseUrl = 'https://fiscora-api.duckdns.org'})
       : _dio = dio ?? Dio(
           BaseOptions(
             baseUrl: baseUrl,
@@ -37,7 +37,8 @@ class SyncApiClient {
             curlLines.add('curl -X ${options.method} "$fullPath"');
             
             options.headers.forEach((key, value) {
-              curlLines.add('  -H "$key: $value"');
+              final shown = key.toLowerCase() == 'authorization' ? 'Bearer <redacted>' : value;
+              curlLines.add('  -H "$key: $shown"');
             });
             
             if (options.data != null) {

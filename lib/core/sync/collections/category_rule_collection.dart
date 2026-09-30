@@ -8,7 +8,15 @@ class CategoryRuleCollection with SyncMetadataMixin {
   int id = 0;
 
   late String merchant;
+
+  /// Display name of the category (kept for older clients / web).
   late String category;
+
+  /// Parent category id (e.g. `food`).
+  String categoryId = '';
+
+  /// Subcategory id (e.g. `food.delivery`), empty if none.
+  String subcategoryId = '';
 
   CategoryRuleCollection();
 
@@ -16,6 +24,8 @@ class CategoryRuleCollection with SyncMetadataMixin {
     required String clientId,
     required String merchant,
     required String category,
+    String categoryId = '',
+    String subcategoryId = '',
     String? serverId,
     DateTime? serverUpdatedAt,
     SyncStatus syncStatus = SyncStatus.pendingCreate,
@@ -25,7 +35,9 @@ class CategoryRuleCollection with SyncMetadataMixin {
   }) {
     final col = CategoryRuleCollection()
       ..merchant = merchant
-      ..category = category;
+      ..category = category
+      ..categoryId = categoryId
+      ..subcategoryId = subcategoryId;
 
     col.clientId = clientId;
     col.serverId = serverId;
@@ -42,6 +54,8 @@ class CategoryRuleCollection with SyncMetadataMixin {
     return {
       'merchant': merchant,
       'category': category,
+      'categoryId': categoryId,
+      'subcategoryId': subcategoryId,
     };
   }
 }

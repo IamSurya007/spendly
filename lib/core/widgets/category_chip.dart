@@ -1,50 +1,51 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_styles.dart';
-import '../../features/expenses/models/expense_model.dart';
+import '../../features/categories/models/category.dart';
+import '../../features/categories/widgets/category_icon.dart';
 
-/// Horizontal-scroll chip for category selection in Add Expense sheet.
+/// Pill used for subcategories and filters: icon + name, tinted with the
+/// category colour when selected.
 class CategoryChip extends StatelessWidget {
-  final String category;
+  final Category category;
   final bool isSelected;
   final VoidCallback onTap;
+  final String? labelOverride;
 
   const CategoryChip({
     super.key,
     required this.category,
     required this.isSelected,
     required this.onTap,
+    this.labelOverride,
   });
 
   @override
   Widget build(BuildContext context) {
+    final color = category.colorValue;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : AppColors.inputFill,
+          color: isSelected ? color.withValues(alpha: 0.14) : AppColors.inputFill,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.accent : AppColors.borderLight,
-            width: 1,
+            color: isSelected ? color : AppColors.borderLight,
+            width: isSelected ? 1.4 : 1,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              ExpenseCategories.iconEmoji(category),
-              style: const TextStyle(fontSize: 14),
-            ),
+            Icon(categoryIconData(category.iconKey), size: 15, color: color),
             const SizedBox(width: 6),
             Text(
-              category,
+              labelOverride ?? category.name,
               style: AppTextStyles.label.copyWith(
-                color: isSelected ? Colors.white : AppColors.primaryNavy,
-                fontWeight: FontWeight.w600,
+                color: AppColors.primaryNavy,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ],

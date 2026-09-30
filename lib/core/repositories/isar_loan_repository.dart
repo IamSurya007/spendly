@@ -1,12 +1,12 @@
 import 'package:isar_plus/isar_plus.dart';
-import 'package:spendly/core/sync/outbox_operation.dart';
+import 'package:fiscora/core/sync/outbox_operation.dart';
 
-import 'package:spendly/features/loans/models/loan_model.dart';
-import 'package:spendly/core/sync/collections/loan_collection.dart';
-import 'package:spendly/core/sync/isar_database.dart';
-import 'package:spendly/core/sync/sync_engine.dart';
-import 'package:spendly/core/sync/sync_metadata.dart';
-import 'package:spendly/core/repositories/i_loan_repository.dart';
+import 'package:fiscora/features/loans/models/loan_model.dart';
+import 'package:fiscora/core/sync/collections/loan_collection.dart';
+import 'package:fiscora/core/sync/isar_database.dart';
+import 'package:fiscora/core/sync/sync_engine.dart';
+import 'package:fiscora/core/sync/sync_metadata.dart';
+import 'package:fiscora/core/repositories/i_loan_repository.dart';
 
 class IsarLoanRepository implements ILoanRepository {
   Isar get _isar => IsarDatabase.instance.isar;

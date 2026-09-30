@@ -84,22 +84,35 @@ class Account {
   double get availableCredit => (creditLimit - currentBalance).clamp(0.0, double.infinity);
 
   factory Account.fromJson(Map<String, dynamic> json, String docId) {
+    final rawType = (json['type'] as String? ?? '').toLowerCase();
+    AccountType parsedType = AccountType.values.firstWhere(
+      (t) => t.name.toLowerCase() == rawType,
+      orElse: () => AccountType.bank_account,
+    );
+
+    DateTime parseDate(dynamic val) {
+      if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
+      if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+      return DateTime.now();
+    }
+
     return Account(
       id: docId,
       name: json['name'] as String? ?? 'Account',
-      type: AccountType.values.firstWhere(
-        (t) => t.name == json['type'],
-        orElse: () => AccountType.bank_account,
-      ),
+      type: parsedType,
       institution: json['institution'] as String? ?? '',
-      currentBalance: (json['currentBalance'] as num? ?? 0.0).toDouble(),
-      creditLimit: (json['creditLimit'] as num? ?? 0.0).toDouble(),
-      colorValue: json['colorValue'] as int? ?? AccountType.bank_account.defaultColor.value,
-      iconName: json['iconName'] as String? ?? '',
-      isArchived: json['isArchived'] as bool? ?? false,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      currentBalance: (json['currentBalance'] as num?)?.toDouble() ??
+          (json['current_balance'] as num?)?.toDouble() ??
+          0.0,
+      creditLimit: (json['creditLimit'] as num?)?.toDouble() ??
+          (json['credit_limit'] as num?)?.toDouble() ??
+          0.0,
+      colorValue: (json['colorValue'] as num?)?.toInt() ??
+          (json['color_value'] as num?)?.toInt() ??
+          parsedType.defaultColor.value,
+      iconName: json['iconName'] as String? ?? json['icon_name'] as String? ?? '',
+      isArchived: json['isArchived'] as bool? ?? json['is_archived'] as bool? ?? false,
+      createdAt: parseDate(json['createdAt'] ?? json['created_at']),
     );
   }
 

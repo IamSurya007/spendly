@@ -24,6 +24,8 @@ final ExpenseCollectionSchema = IsarGeneratedSchema(
       IsarPropertySchema(name: 'amount', type: IsarType.double),
       IsarPropertySchema(name: 'category', type: IsarType.string),
       IsarPropertySchema(name: 'subcategory', type: IsarType.string),
+      IsarPropertySchema(name: 'categoryId', type: IsarType.string),
+      IsarPropertySchema(name: 'subcategoryId', type: IsarType.string),
       IsarPropertySchema(name: 'note', type: IsarType.string),
       IsarPropertySchema(name: 'date', type: IsarType.dateTime),
       IsarPropertySchema(name: 'method', type: IsarType.string),
@@ -56,42 +58,44 @@ int serializeExpenseCollection(IsarWriter writer, ExpenseCollection object) {
   IsarCore.writeDouble(writer, 1, object.amount);
   IsarCore.writeString(writer, 2, object.category);
   IsarCore.writeString(writer, 3, object.subcategory);
-  IsarCore.writeString(writer, 4, object.note);
-  IsarCore.writeLong(writer, 5, object.date.toUtc().microsecondsSinceEpoch);
-  IsarCore.writeString(writer, 6, object.method);
-  IsarCore.writeString(writer, 7, object.source);
-  IsarCore.writeString(writer, 8, object.merchant);
-  IsarCore.writeString(writer, 9, object.accountId);
+  IsarCore.writeString(writer, 4, object.categoryId);
+  IsarCore.writeString(writer, 5, object.subcategoryId);
+  IsarCore.writeString(writer, 6, object.note);
+  IsarCore.writeLong(writer, 7, object.date.toUtc().microsecondsSinceEpoch);
+  IsarCore.writeString(writer, 8, object.method);
+  IsarCore.writeString(writer, 9, object.source);
+  IsarCore.writeString(writer, 10, object.merchant);
+  IsarCore.writeString(writer, 11, object.accountId);
   IsarCore.writeLong(
     writer,
-    10,
+    12,
     object.createdAt.toUtc().microsecondsSinceEpoch,
   );
-  IsarCore.writeBool(writer, 11, value: object.isCountedAsSpend);
+  IsarCore.writeBool(writer, 13, value: object.isCountedAsSpend);
   {
     final value = object.serverId;
     if (value == null) {
-      IsarCore.writeNull(writer, 12);
+      IsarCore.writeNull(writer, 14);
     } else {
-      IsarCore.writeString(writer, 12, value);
+      IsarCore.writeString(writer, 14, value);
     }
   }
-  IsarCore.writeString(writer, 13, object.clientId);
+  IsarCore.writeString(writer, 15, object.clientId);
   IsarCore.writeLong(
     writer,
-    14,
+    16,
     object.updatedAt.toUtc().microsecondsSinceEpoch,
   );
   IsarCore.writeLong(
     writer,
-    15,
+    17,
     object.serverUpdatedAt?.toUtc().microsecondsSinceEpoch ??
         -9223372036854775808,
   );
-  IsarCore.writeString(writer, 16, object.syncStatus);
-  IsarCore.writeBool(writer, 17, value: object.isDeleted);
-  IsarCore.writeLong(writer, 18, object.version);
-  IsarCore.writeBool(writer, 19, value: object.dirty);
+  IsarCore.writeString(writer, 18, object.syncStatus);
+  IsarCore.writeBool(writer, 19, value: object.isDeleted);
+  IsarCore.writeLong(writer, 20, object.version);
+  IsarCore.writeBool(writer, 21, value: object.dirty);
   return object.id;
 }
 
@@ -102,9 +106,11 @@ ExpenseCollection deserializeExpenseCollection(IsarReader reader) {
   object.amount = IsarCore.readDouble(reader, 1);
   object.category = IsarCore.readString(reader, 2) ?? '';
   object.subcategory = IsarCore.readString(reader, 3) ?? '';
-  object.note = IsarCore.readString(reader, 4) ?? '';
+  object.categoryId = IsarCore.readString(reader, 4) ?? '';
+  object.subcategoryId = IsarCore.readString(reader, 5) ?? '';
+  object.note = IsarCore.readString(reader, 6) ?? '';
   {
-    final value = IsarCore.readLong(reader, 5);
+    final value = IsarCore.readLong(reader, 7);
     if (value == -9223372036854775808) {
       object.date = DateTime.fromMillisecondsSinceEpoch(
         0,
@@ -117,12 +123,12 @@ ExpenseCollection deserializeExpenseCollection(IsarReader reader) {
       ).toLocal();
     }
   }
-  object.method = IsarCore.readString(reader, 6) ?? '';
-  object.source = IsarCore.readString(reader, 7) ?? '';
-  object.merchant = IsarCore.readString(reader, 8) ?? '';
-  object.accountId = IsarCore.readString(reader, 9) ?? '';
+  object.method = IsarCore.readString(reader, 8) ?? '';
+  object.source = IsarCore.readString(reader, 9) ?? '';
+  object.merchant = IsarCore.readString(reader, 10) ?? '';
+  object.accountId = IsarCore.readString(reader, 11) ?? '';
   {
-    final value = IsarCore.readLong(reader, 10);
+    final value = IsarCore.readLong(reader, 12);
     if (value == -9223372036854775808) {
       object.createdAt = DateTime.fromMillisecondsSinceEpoch(
         0,
@@ -135,11 +141,11 @@ ExpenseCollection deserializeExpenseCollection(IsarReader reader) {
       ).toLocal();
     }
   }
-  object.isCountedAsSpend = IsarCore.readBool(reader, 11);
-  object.serverId = IsarCore.readString(reader, 12);
-  object.clientId = IsarCore.readString(reader, 13) ?? '';
+  object.isCountedAsSpend = IsarCore.readBool(reader, 13);
+  object.serverId = IsarCore.readString(reader, 14);
+  object.clientId = IsarCore.readString(reader, 15) ?? '';
   {
-    final value = IsarCore.readLong(reader, 14);
+    final value = IsarCore.readLong(reader, 16);
     if (value == -9223372036854775808) {
       object.updatedAt = DateTime.fromMillisecondsSinceEpoch(
         0,
@@ -153,7 +159,7 @@ ExpenseCollection deserializeExpenseCollection(IsarReader reader) {
     }
   }
   {
-    final value = IsarCore.readLong(reader, 15);
+    final value = IsarCore.readLong(reader, 17);
     if (value == -9223372036854775808) {
       object.serverUpdatedAt = null;
     } else {
@@ -163,10 +169,10 @@ ExpenseCollection deserializeExpenseCollection(IsarReader reader) {
       ).toLocal();
     }
   }
-  object.syncStatus = IsarCore.readString(reader, 16) ?? '';
-  object.isDeleted = IsarCore.readBool(reader, 17);
-  object.version = IsarCore.readLong(reader, 18);
-  object.dirty = IsarCore.readBool(reader, 19);
+  object.syncStatus = IsarCore.readString(reader, 18) ?? '';
+  object.isDeleted = IsarCore.readBool(reader, 19);
+  object.version = IsarCore.readLong(reader, 20);
+  object.dirty = IsarCore.readBool(reader, 21);
   return object;
 }
 
@@ -184,8 +190,12 @@ dynamic deserializeExpenseCollectionProp(IsarReader reader, int property) {
     case 4:
       return IsarCore.readString(reader, 4) ?? '';
     case 5:
+      return IsarCore.readString(reader, 5) ?? '';
+    case 6:
+      return IsarCore.readString(reader, 6) ?? '';
+    case 7:
       {
-        final value = IsarCore.readLong(reader, 5);
+        final value = IsarCore.readLong(reader, 7);
         if (value == -9223372036854775808) {
           return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true).toLocal();
         } else {
@@ -195,35 +205,17 @@ dynamic deserializeExpenseCollectionProp(IsarReader reader, int property) {
           ).toLocal();
         }
       }
-    case 6:
-      return IsarCore.readString(reader, 6) ?? '';
-    case 7:
-      return IsarCore.readString(reader, 7) ?? '';
     case 8:
       return IsarCore.readString(reader, 8) ?? '';
     case 9:
       return IsarCore.readString(reader, 9) ?? '';
     case 10:
-      {
-        final value = IsarCore.readLong(reader, 10);
-        if (value == -9223372036854775808) {
-          return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true).toLocal();
-        } else {
-          return DateTime.fromMicrosecondsSinceEpoch(
-            value,
-            isUtc: true,
-          ).toLocal();
-        }
-      }
+      return IsarCore.readString(reader, 10) ?? '';
     case 11:
-      return IsarCore.readBool(reader, 11);
+      return IsarCore.readString(reader, 11) ?? '';
     case 12:
-      return IsarCore.readString(reader, 12);
-    case 13:
-      return IsarCore.readString(reader, 13) ?? '';
-    case 14:
       {
-        final value = IsarCore.readLong(reader, 14);
+        final value = IsarCore.readLong(reader, 12);
         if (value == -9223372036854775808) {
           return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true).toLocal();
         } else {
@@ -233,9 +225,27 @@ dynamic deserializeExpenseCollectionProp(IsarReader reader, int property) {
           ).toLocal();
         }
       }
+    case 13:
+      return IsarCore.readBool(reader, 13);
+    case 14:
+      return IsarCore.readString(reader, 14);
     case 15:
+      return IsarCore.readString(reader, 15) ?? '';
+    case 16:
       {
-        final value = IsarCore.readLong(reader, 15);
+        final value = IsarCore.readLong(reader, 16);
+        if (value == -9223372036854775808) {
+          return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true).toLocal();
+        } else {
+          return DateTime.fromMicrosecondsSinceEpoch(
+            value,
+            isUtc: true,
+          ).toLocal();
+        }
+      }
+    case 17:
+      {
+        final value = IsarCore.readLong(reader, 17);
         if (value == -9223372036854775808) {
           return null;
         } else {
@@ -245,14 +255,14 @@ dynamic deserializeExpenseCollectionProp(IsarReader reader, int property) {
           ).toLocal();
         }
       }
-    case 16:
-      return IsarCore.readString(reader, 16) ?? '';
-    case 17:
-      return IsarCore.readBool(reader, 17);
     case 18:
-      return IsarCore.readLong(reader, 18);
+      return IsarCore.readString(reader, 18) ?? '';
     case 19:
       return IsarCore.readBool(reader, 19);
+    case 20:
+      return IsarCore.readLong(reader, 20);
+    case 21:
+      return IsarCore.readBool(reader, 21);
     default:
       throw ArgumentError('Unknown property: $property');
   }
@@ -264,6 +274,8 @@ sealed class _ExpenseCollectionUpdate {
     double? amount,
     String? category,
     String? subcategory,
+    String? categoryId,
+    String? subcategoryId,
     String? note,
     DateTime? date,
     String? method,
@@ -294,6 +306,8 @@ class _ExpenseCollectionUpdateImpl implements _ExpenseCollectionUpdate {
     Object? amount = ignore,
     Object? category = ignore,
     Object? subcategory = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? note = ignore,
     Object? date = ignore,
     Object? method = ignore,
@@ -317,22 +331,24 @@ class _ExpenseCollectionUpdateImpl implements _ExpenseCollectionUpdate {
             if (amount != ignore) 1: amount as double?,
             if (category != ignore) 2: category as String?,
             if (subcategory != ignore) 3: subcategory as String?,
-            if (note != ignore) 4: note as String?,
-            if (date != ignore) 5: date as DateTime?,
-            if (method != ignore) 6: method as String?,
-            if (source != ignore) 7: source as String?,
-            if (merchant != ignore) 8: merchant as String?,
-            if (accountId != ignore) 9: accountId as String?,
-            if (createdAt != ignore) 10: createdAt as DateTime?,
-            if (isCountedAsSpend != ignore) 11: isCountedAsSpend as bool?,
-            if (serverId != ignore) 12: serverId as String?,
-            if (clientId != ignore) 13: clientId as String?,
-            if (updatedAt != ignore) 14: updatedAt as DateTime?,
-            if (serverUpdatedAt != ignore) 15: serverUpdatedAt as DateTime?,
-            if (syncStatus != ignore) 16: syncStatus as String?,
-            if (isDeleted != ignore) 17: isDeleted as bool?,
-            if (version != ignore) 18: version as int?,
-            if (dirty != ignore) 19: dirty as bool?,
+            if (categoryId != ignore) 4: categoryId as String?,
+            if (subcategoryId != ignore) 5: subcategoryId as String?,
+            if (note != ignore) 6: note as String?,
+            if (date != ignore) 7: date as DateTime?,
+            if (method != ignore) 8: method as String?,
+            if (source != ignore) 9: source as String?,
+            if (merchant != ignore) 10: merchant as String?,
+            if (accountId != ignore) 11: accountId as String?,
+            if (createdAt != ignore) 12: createdAt as DateTime?,
+            if (isCountedAsSpend != ignore) 13: isCountedAsSpend as bool?,
+            if (serverId != ignore) 14: serverId as String?,
+            if (clientId != ignore) 15: clientId as String?,
+            if (updatedAt != ignore) 16: updatedAt as DateTime?,
+            if (serverUpdatedAt != ignore) 17: serverUpdatedAt as DateTime?,
+            if (syncStatus != ignore) 18: syncStatus as String?,
+            if (isDeleted != ignore) 19: isDeleted as bool?,
+            if (version != ignore) 20: version as int?,
+            if (dirty != ignore) 21: dirty as bool?,
           },
         ) >
         0;
@@ -345,6 +361,8 @@ sealed class _ExpenseCollectionUpdateAll {
     double? amount,
     String? category,
     String? subcategory,
+    String? categoryId,
+    String? subcategoryId,
     String? note,
     DateTime? date,
     String? method,
@@ -375,6 +393,8 @@ class _ExpenseCollectionUpdateAllImpl implements _ExpenseCollectionUpdateAll {
     Object? amount = ignore,
     Object? category = ignore,
     Object? subcategory = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? note = ignore,
     Object? date = ignore,
     Object? method = ignore,
@@ -396,22 +416,24 @@ class _ExpenseCollectionUpdateAllImpl implements _ExpenseCollectionUpdateAll {
       if (amount != ignore) 1: amount as double?,
       if (category != ignore) 2: category as String?,
       if (subcategory != ignore) 3: subcategory as String?,
-      if (note != ignore) 4: note as String?,
-      if (date != ignore) 5: date as DateTime?,
-      if (method != ignore) 6: method as String?,
-      if (source != ignore) 7: source as String?,
-      if (merchant != ignore) 8: merchant as String?,
-      if (accountId != ignore) 9: accountId as String?,
-      if (createdAt != ignore) 10: createdAt as DateTime?,
-      if (isCountedAsSpend != ignore) 11: isCountedAsSpend as bool?,
-      if (serverId != ignore) 12: serverId as String?,
-      if (clientId != ignore) 13: clientId as String?,
-      if (updatedAt != ignore) 14: updatedAt as DateTime?,
-      if (serverUpdatedAt != ignore) 15: serverUpdatedAt as DateTime?,
-      if (syncStatus != ignore) 16: syncStatus as String?,
-      if (isDeleted != ignore) 17: isDeleted as bool?,
-      if (version != ignore) 18: version as int?,
-      if (dirty != ignore) 19: dirty as bool?,
+      if (categoryId != ignore) 4: categoryId as String?,
+      if (subcategoryId != ignore) 5: subcategoryId as String?,
+      if (note != ignore) 6: note as String?,
+      if (date != ignore) 7: date as DateTime?,
+      if (method != ignore) 8: method as String?,
+      if (source != ignore) 9: source as String?,
+      if (merchant != ignore) 10: merchant as String?,
+      if (accountId != ignore) 11: accountId as String?,
+      if (createdAt != ignore) 12: createdAt as DateTime?,
+      if (isCountedAsSpend != ignore) 13: isCountedAsSpend as bool?,
+      if (serverId != ignore) 14: serverId as String?,
+      if (clientId != ignore) 15: clientId as String?,
+      if (updatedAt != ignore) 16: updatedAt as DateTime?,
+      if (serverUpdatedAt != ignore) 17: serverUpdatedAt as DateTime?,
+      if (syncStatus != ignore) 18: syncStatus as String?,
+      if (isDeleted != ignore) 19: isDeleted as bool?,
+      if (version != ignore) 20: version as int?,
+      if (dirty != ignore) 21: dirty as bool?,
     });
   }
 }
@@ -428,6 +450,8 @@ sealed class _ExpenseCollectionQueryUpdate {
     double? amount,
     String? category,
     String? subcategory,
+    String? categoryId,
+    String? subcategoryId,
     String? note,
     DateTime? date,
     String? method,
@@ -459,6 +483,8 @@ class _ExpenseCollectionQueryUpdateImpl
     Object? amount = ignore,
     Object? category = ignore,
     Object? subcategory = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? note = ignore,
     Object? date = ignore,
     Object? method = ignore,
@@ -480,22 +506,24 @@ class _ExpenseCollectionQueryUpdateImpl
       if (amount != ignore) 1: amount as double?,
       if (category != ignore) 2: category as String?,
       if (subcategory != ignore) 3: subcategory as String?,
-      if (note != ignore) 4: note as String?,
-      if (date != ignore) 5: date as DateTime?,
-      if (method != ignore) 6: method as String?,
-      if (source != ignore) 7: source as String?,
-      if (merchant != ignore) 8: merchant as String?,
-      if (accountId != ignore) 9: accountId as String?,
-      if (createdAt != ignore) 10: createdAt as DateTime?,
-      if (isCountedAsSpend != ignore) 11: isCountedAsSpend as bool?,
-      if (serverId != ignore) 12: serverId as String?,
-      if (clientId != ignore) 13: clientId as String?,
-      if (updatedAt != ignore) 14: updatedAt as DateTime?,
-      if (serverUpdatedAt != ignore) 15: serverUpdatedAt as DateTime?,
-      if (syncStatus != ignore) 16: syncStatus as String?,
-      if (isDeleted != ignore) 17: isDeleted as bool?,
-      if (version != ignore) 18: version as int?,
-      if (dirty != ignore) 19: dirty as bool?,
+      if (categoryId != ignore) 4: categoryId as String?,
+      if (subcategoryId != ignore) 5: subcategoryId as String?,
+      if (note != ignore) 6: note as String?,
+      if (date != ignore) 7: date as DateTime?,
+      if (method != ignore) 8: method as String?,
+      if (source != ignore) 9: source as String?,
+      if (merchant != ignore) 10: merchant as String?,
+      if (accountId != ignore) 11: accountId as String?,
+      if (createdAt != ignore) 12: createdAt as DateTime?,
+      if (isCountedAsSpend != ignore) 13: isCountedAsSpend as bool?,
+      if (serverId != ignore) 14: serverId as String?,
+      if (clientId != ignore) 15: clientId as String?,
+      if (updatedAt != ignore) 16: updatedAt as DateTime?,
+      if (serverUpdatedAt != ignore) 17: serverUpdatedAt as DateTime?,
+      if (syncStatus != ignore) 18: syncStatus as String?,
+      if (isDeleted != ignore) 19: isDeleted as bool?,
+      if (version != ignore) 20: version as int?,
+      if (dirty != ignore) 21: dirty as bool?,
     });
   }
 }
@@ -520,6 +548,8 @@ class _ExpenseCollectionQueryBuilderUpdateImpl
     Object? amount = ignore,
     Object? category = ignore,
     Object? subcategory = ignore,
+    Object? categoryId = ignore,
+    Object? subcategoryId = ignore,
     Object? note = ignore,
     Object? date = ignore,
     Object? method = ignore,
@@ -543,22 +573,24 @@ class _ExpenseCollectionQueryBuilderUpdateImpl
         if (amount != ignore) 1: amount as double?,
         if (category != ignore) 2: category as String?,
         if (subcategory != ignore) 3: subcategory as String?,
-        if (note != ignore) 4: note as String?,
-        if (date != ignore) 5: date as DateTime?,
-        if (method != ignore) 6: method as String?,
-        if (source != ignore) 7: source as String?,
-        if (merchant != ignore) 8: merchant as String?,
-        if (accountId != ignore) 9: accountId as String?,
-        if (createdAt != ignore) 10: createdAt as DateTime?,
-        if (isCountedAsSpend != ignore) 11: isCountedAsSpend as bool?,
-        if (serverId != ignore) 12: serverId as String?,
-        if (clientId != ignore) 13: clientId as String?,
-        if (updatedAt != ignore) 14: updatedAt as DateTime?,
-        if (serverUpdatedAt != ignore) 15: serverUpdatedAt as DateTime?,
-        if (syncStatus != ignore) 16: syncStatus as String?,
-        if (isDeleted != ignore) 17: isDeleted as bool?,
-        if (version != ignore) 18: version as int?,
-        if (dirty != ignore) 19: dirty as bool?,
+        if (categoryId != ignore) 4: categoryId as String?,
+        if (subcategoryId != ignore) 5: subcategoryId as String?,
+        if (note != ignore) 6: note as String?,
+        if (date != ignore) 7: date as DateTime?,
+        if (method != ignore) 8: method as String?,
+        if (source != ignore) 9: source as String?,
+        if (merchant != ignore) 10: merchant as String?,
+        if (accountId != ignore) 11: accountId as String?,
+        if (createdAt != ignore) 12: createdAt as DateTime?,
+        if (isCountedAsSpend != ignore) 13: isCountedAsSpend as bool?,
+        if (serverId != ignore) 14: serverId as String?,
+        if (clientId != ignore) 15: clientId as String?,
+        if (updatedAt != ignore) 16: updatedAt as DateTime?,
+        if (serverUpdatedAt != ignore) 17: serverUpdatedAt as DateTime?,
+        if (syncStatus != ignore) 18: syncStatus as String?,
+        if (isDeleted != ignore) 19: isDeleted as bool?,
+        if (version != ignore) 20: version as int?,
+        if (dirty != ignore) 21: dirty as bool?,
       });
     } finally {
       q.close();
@@ -972,7 +1004,7 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteEqualTo(String value, {bool caseSensitive = true}) {
+  categoryIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EqualCondition(property: 4, value: value, caseSensitive: caseSensitive),
@@ -981,7 +1013,7 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteGreaterThan(String value, {bool caseSensitive = true}) {
+  categoryIdGreaterThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
@@ -994,7 +1026,7 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
+  categoryIdGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
@@ -1007,7 +1039,7 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteLessThan(String value, {bool caseSensitive = true}) {
+  categoryIdLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessCondition(property: 4, value: value, caseSensitive: caseSensitive),
@@ -1016,7 +1048,7 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
+  categoryIdLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
@@ -1029,11 +1061,297 @@ extension ExpenseCollectionQueryFilter
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
-  noteBetween(String lower, String upper, {bool caseSensitive = true}) {
+  categoryIdBetween(String lower, String upper, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
           property: 4,
+          lower: lower,
+          upper: upper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        StartsWithCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EndsWithCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        ContainsCondition(
+          property: 4,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        MatchesCondition(
+          property: 4,
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const EqualCondition(property: 4, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  categoryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const GreaterCondition(property: 4, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EqualCondition(property: 5, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdGreaterThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterOrEqualCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdLessThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessCondition(property: 5, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessOrEqualCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdBetween(
+    String lower,
+    String upper, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        BetweenCondition(
+          property: 5,
+          lower: lower,
+          upper: upper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        StartsWithCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EndsWithCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        ContainsCondition(
+          property: 5,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        MatchesCondition(
+          property: 5,
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const EqualCondition(property: 5, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  subcategoryIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const GreaterCondition(property: 5, value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        EqualCondition(property: 6, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteGreaterThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterCondition(
+          property: 6,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteGreaterThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        GreaterOrEqualCondition(
+          property: 6,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteLessThan(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessCondition(property: 6, value: value, caseSensitive: caseSensitive),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteLessThanOrEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        LessOrEqualCondition(
+          property: 6,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
+  noteBetween(String lower, String upper, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        BetweenCondition(
+          property: 6,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1047,7 +1365,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1060,7 +1378,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1073,7 +1391,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 4,
+          property: 6,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1086,7 +1404,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 4,
+          property: 6,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1098,7 +1416,7 @@ extension ExpenseCollectionQueryFilter
   noteIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 4, value: ''),
+        const EqualCondition(property: 6, value: ''),
       );
     });
   }
@@ -1107,7 +1425,7 @@ extension ExpenseCollectionQueryFilter
   noteIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 4, value: ''),
+        const GreaterCondition(property: 6, value: ''),
       );
     });
   }
@@ -1116,7 +1434,7 @@ extension ExpenseCollectionQueryFilter
   dateEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 5, value: value),
+        EqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1125,7 +1443,7 @@ extension ExpenseCollectionQueryFilter
   dateGreaterThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 5, value: value),
+        GreaterCondition(property: 7, value: value),
       );
     });
   }
@@ -1134,7 +1452,7 @@ extension ExpenseCollectionQueryFilter
   dateGreaterThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 5, value: value),
+        GreaterOrEqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1142,7 +1460,7 @@ extension ExpenseCollectionQueryFilter
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
   dateLessThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(LessCondition(property: 5, value: value));
+      return query.addFilterCondition(LessCondition(property: 7, value: value));
     });
   }
 
@@ -1150,7 +1468,7 @@ extension ExpenseCollectionQueryFilter
   dateLessThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 5, value: value),
+        LessOrEqualCondition(property: 7, value: value),
       );
     });
   }
@@ -1159,7 +1477,7 @@ extension ExpenseCollectionQueryFilter
   dateBetween(DateTime lower, DateTime upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 5, lower: lower, upper: upper),
+        BetweenCondition(property: 7, lower: lower, upper: upper),
       );
     });
   }
@@ -1168,7 +1486,7 @@ extension ExpenseCollectionQueryFilter
   methodEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 6, value: value, caseSensitive: caseSensitive),
+        EqualCondition(property: 8, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1178,7 +1496,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1191,7 +1509,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1203,7 +1521,7 @@ extension ExpenseCollectionQueryFilter
   methodLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 6, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 8, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1213,7 +1531,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1226,7 +1544,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 6,
+          property: 8,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1240,7 +1558,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1253,7 +1571,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1266,7 +1584,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 6,
+          property: 8,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1279,7 +1597,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 6,
+          property: 8,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1291,7 +1609,7 @@ extension ExpenseCollectionQueryFilter
   methodIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 6, value: ''),
+        const EqualCondition(property: 8, value: ''),
       );
     });
   }
@@ -1300,7 +1618,7 @@ extension ExpenseCollectionQueryFilter
   methodIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 6, value: ''),
+        const GreaterCondition(property: 8, value: ''),
       );
     });
   }
@@ -1309,7 +1627,7 @@ extension ExpenseCollectionQueryFilter
   sourceEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 7, value: value, caseSensitive: caseSensitive),
+        EqualCondition(property: 9, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1319,7 +1637,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1332,7 +1650,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1344,7 +1662,7 @@ extension ExpenseCollectionQueryFilter
   sourceLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 7, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 9, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1354,7 +1672,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1367,7 +1685,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 7,
+          property: 9,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1381,7 +1699,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1394,7 +1712,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1407,7 +1725,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 7,
+          property: 9,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1420,7 +1738,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 7,
+          property: 9,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1432,7 +1750,7 @@ extension ExpenseCollectionQueryFilter
   sourceIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 7, value: ''),
+        const EqualCondition(property: 9, value: ''),
       );
     });
   }
@@ -1441,7 +1759,7 @@ extension ExpenseCollectionQueryFilter
   sourceIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 7, value: ''),
+        const GreaterCondition(property: 9, value: ''),
       );
     });
   }
@@ -1450,7 +1768,11 @@ extension ExpenseCollectionQueryFilter
   merchantEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 8, value: value, caseSensitive: caseSensitive),
+        EqualCondition(
+          property: 10,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
@@ -1460,7 +1782,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1473,7 +1795,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1485,7 +1807,7 @@ extension ExpenseCollectionQueryFilter
   merchantLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 8, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 10, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1495,7 +1817,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1508,7 +1830,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 8,
+          property: 10,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1522,7 +1844,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1535,7 +1857,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1548,7 +1870,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 8,
+          property: 10,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1561,7 +1883,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 8,
+          property: 10,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1573,7 +1895,7 @@ extension ExpenseCollectionQueryFilter
   merchantIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 8, value: ''),
+        const EqualCondition(property: 10, value: ''),
       );
     });
   }
@@ -1582,7 +1904,7 @@ extension ExpenseCollectionQueryFilter
   merchantIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 8, value: ''),
+        const GreaterCondition(property: 10, value: ''),
       );
     });
   }
@@ -1591,7 +1913,11 @@ extension ExpenseCollectionQueryFilter
   accountIdEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 9, value: value, caseSensitive: caseSensitive),
+        EqualCondition(
+          property: 11,
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
@@ -1601,7 +1927,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1614,7 +1940,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1626,7 +1952,7 @@ extension ExpenseCollectionQueryFilter
   accountIdLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 9, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 11, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1636,7 +1962,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1649,7 +1975,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 9,
+          property: 11,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1663,7 +1989,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1676,7 +2002,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1689,7 +2015,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 9,
+          property: 11,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1702,7 +2028,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 9,
+          property: 11,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1714,7 +2040,7 @@ extension ExpenseCollectionQueryFilter
   accountIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 9, value: ''),
+        const EqualCondition(property: 11, value: ''),
       );
     });
   }
@@ -1723,7 +2049,7 @@ extension ExpenseCollectionQueryFilter
   accountIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 9, value: ''),
+        const GreaterCondition(property: 11, value: ''),
       );
     });
   }
@@ -1732,7 +2058,7 @@ extension ExpenseCollectionQueryFilter
   createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 10, value: value),
+        EqualCondition(property: 12, value: value),
       );
     });
   }
@@ -1741,7 +2067,7 @@ extension ExpenseCollectionQueryFilter
   createdAtGreaterThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 10, value: value),
+        GreaterCondition(property: 12, value: value),
       );
     });
   }
@@ -1750,7 +2076,7 @@ extension ExpenseCollectionQueryFilter
   createdAtGreaterThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 10, value: value),
+        GreaterOrEqualCondition(property: 12, value: value),
       );
     });
   }
@@ -1759,7 +2085,7 @@ extension ExpenseCollectionQueryFilter
   createdAtLessThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 10, value: value),
+        LessCondition(property: 12, value: value),
       );
     });
   }
@@ -1768,7 +2094,7 @@ extension ExpenseCollectionQueryFilter
   createdAtLessThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 10, value: value),
+        LessOrEqualCondition(property: 12, value: value),
       );
     });
   }
@@ -1777,7 +2103,7 @@ extension ExpenseCollectionQueryFilter
   createdAtBetween(DateTime lower, DateTime upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 10, lower: lower, upper: upper),
+        BetweenCondition(property: 12, lower: lower, upper: upper),
       );
     });
   }
@@ -1786,7 +2112,7 @@ extension ExpenseCollectionQueryFilter
   isCountedAsSpendEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 11, value: value),
+        EqualCondition(property: 13, value: value),
       );
     });
   }
@@ -1794,14 +2120,14 @@ extension ExpenseCollectionQueryFilter
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
   serverIdIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 12));
+      return query.addFilterCondition(const IsNullCondition(property: 14));
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
   serverIdIsNotNull() {
     return QueryBuilder.apply(not(), (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 12));
+      return query.addFilterCondition(const IsNullCondition(property: 14));
     });
   }
 
@@ -1810,7 +2136,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EqualCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1823,7 +2149,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1836,7 +2162,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1848,7 +2174,7 @@ extension ExpenseCollectionQueryFilter
   serverIdLessThan(String? value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 12, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 14, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -1858,7 +2184,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1871,7 +2197,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 12,
+          property: 14,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -1885,7 +2211,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1898,7 +2224,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1911,7 +2237,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 12,
+          property: 14,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1924,7 +2250,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 12,
+          property: 14,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -1936,7 +2262,7 @@ extension ExpenseCollectionQueryFilter
   serverIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 12, value: ''),
+        const EqualCondition(property: 14, value: ''),
       );
     });
   }
@@ -1945,7 +2271,7 @@ extension ExpenseCollectionQueryFilter
   serverIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 12, value: ''),
+        const GreaterCondition(property: 14, value: ''),
       );
     });
   }
@@ -1955,7 +2281,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EqualCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1968,7 +2294,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1981,7 +2307,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -1993,7 +2319,7 @@ extension ExpenseCollectionQueryFilter
   clientIdLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 13, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 15, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -2003,7 +2329,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2016,7 +2342,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 13,
+          property: 15,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -2030,7 +2356,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2043,7 +2369,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2056,7 +2382,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 13,
+          property: 15,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2069,7 +2395,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 13,
+          property: 15,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -2081,7 +2407,7 @@ extension ExpenseCollectionQueryFilter
   clientIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 13, value: ''),
+        const EqualCondition(property: 15, value: ''),
       );
     });
   }
@@ -2090,7 +2416,7 @@ extension ExpenseCollectionQueryFilter
   clientIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 13, value: ''),
+        const GreaterCondition(property: 15, value: ''),
       );
     });
   }
@@ -2099,7 +2425,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 14, value: value),
+        EqualCondition(property: 16, value: value),
       );
     });
   }
@@ -2108,7 +2434,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtGreaterThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 14, value: value),
+        GreaterCondition(property: 16, value: value),
       );
     });
   }
@@ -2117,7 +2443,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtGreaterThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 14, value: value),
+        GreaterOrEqualCondition(property: 16, value: value),
       );
     });
   }
@@ -2126,7 +2452,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtLessThan(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 14, value: value),
+        LessCondition(property: 16, value: value),
       );
     });
   }
@@ -2135,7 +2461,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtLessThanOrEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 14, value: value),
+        LessOrEqualCondition(property: 16, value: value),
       );
     });
   }
@@ -2144,7 +2470,7 @@ extension ExpenseCollectionQueryFilter
   updatedAtBetween(DateTime lower, DateTime upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 14, lower: lower, upper: upper),
+        BetweenCondition(property: 16, lower: lower, upper: upper),
       );
     });
   }
@@ -2152,14 +2478,14 @@ extension ExpenseCollectionQueryFilter
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
   serverUpdatedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 15));
+      return query.addFilterCondition(const IsNullCondition(property: 17));
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterFilterCondition>
   serverUpdatedAtIsNotNull() {
     return QueryBuilder.apply(not(), (query) {
-      return query.addFilterCondition(const IsNullCondition(property: 15));
+      return query.addFilterCondition(const IsNullCondition(property: 17));
     });
   }
 
@@ -2167,7 +2493,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 15, value: value),
+        EqualCondition(property: 17, value: value),
       );
     });
   }
@@ -2176,7 +2502,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtGreaterThan(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 15, value: value),
+        GreaterCondition(property: 17, value: value),
       );
     });
   }
@@ -2185,7 +2511,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtGreaterThanOrEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 15, value: value),
+        GreaterOrEqualCondition(property: 17, value: value),
       );
     });
   }
@@ -2194,7 +2520,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtLessThan(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 15, value: value),
+        LessCondition(property: 17, value: value),
       );
     });
   }
@@ -2203,7 +2529,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtLessThanOrEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 15, value: value),
+        LessOrEqualCondition(property: 17, value: value),
       );
     });
   }
@@ -2212,7 +2538,7 @@ extension ExpenseCollectionQueryFilter
   serverUpdatedAtBetween(DateTime? lower, DateTime? upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 15, lower: lower, upper: upper),
+        BetweenCondition(property: 17, lower: lower, upper: upper),
       );
     });
   }
@@ -2222,7 +2548,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EqualCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2235,7 +2561,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2248,7 +2574,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         GreaterOrEqualCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2260,7 +2586,7 @@ extension ExpenseCollectionQueryFilter
   syncStatusLessThan(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 16, value: value, caseSensitive: caseSensitive),
+        LessCondition(property: 18, value: value, caseSensitive: caseSensitive),
       );
     });
   }
@@ -2270,7 +2596,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         LessOrEqualCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2283,7 +2609,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         BetweenCondition(
-          property: 16,
+          property: 18,
           lower: lower,
           upper: upper,
           caseSensitive: caseSensitive,
@@ -2297,7 +2623,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         StartsWithCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2310,7 +2636,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         EndsWithCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2323,7 +2649,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         ContainsCondition(
-          property: 16,
+          property: 18,
           value: value,
           caseSensitive: caseSensitive,
         ),
@@ -2336,7 +2662,7 @@ extension ExpenseCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
         MatchesCondition(
-          property: 16,
+          property: 18,
           wildcard: pattern,
           caseSensitive: caseSensitive,
         ),
@@ -2348,7 +2674,7 @@ extension ExpenseCollectionQueryFilter
   syncStatusIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const EqualCondition(property: 16, value: ''),
+        const EqualCondition(property: 18, value: ''),
       );
     });
   }
@@ -2357,7 +2683,7 @@ extension ExpenseCollectionQueryFilter
   syncStatusIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        const GreaterCondition(property: 16, value: ''),
+        const GreaterCondition(property: 18, value: ''),
       );
     });
   }
@@ -2366,7 +2692,7 @@ extension ExpenseCollectionQueryFilter
   isDeletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 17, value: value),
+        EqualCondition(property: 19, value: value),
       );
     });
   }
@@ -2375,7 +2701,7 @@ extension ExpenseCollectionQueryFilter
   versionEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 18, value: value),
+        EqualCondition(property: 20, value: value),
       );
     });
   }
@@ -2384,7 +2710,7 @@ extension ExpenseCollectionQueryFilter
   versionGreaterThan(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterCondition(property: 18, value: value),
+        GreaterCondition(property: 20, value: value),
       );
     });
   }
@@ -2393,7 +2719,7 @@ extension ExpenseCollectionQueryFilter
   versionGreaterThanOrEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        GreaterOrEqualCondition(property: 18, value: value),
+        GreaterOrEqualCondition(property: 20, value: value),
       );
     });
   }
@@ -2402,7 +2728,7 @@ extension ExpenseCollectionQueryFilter
   versionLessThan(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessCondition(property: 18, value: value),
+        LessCondition(property: 20, value: value),
       );
     });
   }
@@ -2411,7 +2737,7 @@ extension ExpenseCollectionQueryFilter
   versionLessThanOrEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        LessOrEqualCondition(property: 18, value: value),
+        LessOrEqualCondition(property: 20, value: value),
       );
     });
   }
@@ -2420,7 +2746,7 @@ extension ExpenseCollectionQueryFilter
   versionBetween(int lower, int upper) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        BetweenCondition(property: 18, lower: lower, upper: upper),
+        BetweenCondition(property: 20, lower: lower, upper: upper),
       );
     });
   }
@@ -2429,7 +2755,7 @@ extension ExpenseCollectionQueryFilter
   dirtyEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
-        EqualCondition(property: 19, value: value),
+        EqualCondition(property: 21, value: value),
       );
     });
   }
@@ -2495,228 +2821,256 @@ extension ExpenseCollectionQuerySortBy
     });
   }
 
-  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy> sortByNote({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  sortByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByNoteDesc({bool caseSensitive = true}) {
+  sortByCategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByDate() {
+  sortBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5);
+      return query.addSortBy(5, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByDateDesc() {
+  sortBySubcategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5, sort: Sort.desc);
+      return query.addSortBy(5, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByMethod({bool caseSensitive = true}) {
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy> sortByNote({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(6, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByMethodDesc({bool caseSensitive = true}) {
+  sortByNoteDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(6, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortBySource({bool caseSensitive = true}) {
+  sortByDate() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, caseSensitive: caseSensitive);
+      return query.addSortBy(7);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortBySourceDesc({bool caseSensitive = true}) {
+  sortByDateDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(7, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByMerchant({bool caseSensitive = true}) {
+  sortByMethod({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(8, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByMerchantDesc({bool caseSensitive = true}) {
+  sortByMethodDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(8, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByAccountId({bool caseSensitive = true}) {
+  sortBySource({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  sortByAccountIdDesc({bool caseSensitive = true}) {
+  sortBySourceDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(9, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  sortByMerchant({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(10, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  sortByMerchantDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(10, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  sortByAccountId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(11, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  sortByAccountIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(11, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10);
+      return query.addSortBy(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10, sort: Sort.desc);
+      return query.addSortBy(12, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByIsCountedAsSpend() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(11);
+      return query.addSortBy(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByIsCountedAsSpendDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(11, sort: Sort.desc);
+      return query.addSortBy(13, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByServerId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(12, caseSensitive: caseSensitive);
+      return query.addSortBy(14, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByServerIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(12, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(14, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByClientId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(13, caseSensitive: caseSensitive);
+      return query.addSortBy(15, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByClientIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(13, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(15, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(14);
+      return query.addSortBy(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(14, sort: Sort.desc);
+      return query.addSortBy(16, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(15);
+      return query.addSortBy(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByServerUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(15, sort: Sort.desc);
+      return query.addSortBy(17, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(16, caseSensitive: caseSensitive);
+      return query.addSortBy(18, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortBySyncStatusDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(16, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(18, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(17);
+      return query.addSortBy(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(17, sort: Sort.desc);
+      return query.addSortBy(19, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(18);
+      return query.addSortBy(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(18, sort: Sort.desc);
+      return query.addSortBy(20, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(19);
+      return query.addSortBy(21);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   sortByDirtyDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(19, sort: Sort.desc);
+      return query.addSortBy(21, sort: Sort.desc);
     });
   }
 }
@@ -2778,228 +3132,256 @@ extension ExpenseCollectionQuerySortThenBy
     });
   }
 
-  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy> thenByNote({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  thenByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByNoteDesc({bool caseSensitive = true}) {
+  thenByCategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(4, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByDate() {
+  thenBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5);
+      return query.addSortBy(5, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByDateDesc() {
+  thenBySubcategoryIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(5, sort: Sort.desc);
+      return query.addSortBy(5, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByMethod({bool caseSensitive = true}) {
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy> thenByNote({
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(6, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByMethodDesc({bool caseSensitive = true}) {
+  thenByNoteDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(6, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenBySource({bool caseSensitive = true}) {
+  thenByDate() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, caseSensitive: caseSensitive);
+      return query.addSortBy(7);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenBySourceDesc({bool caseSensitive = true}) {
+  thenByDateDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(7, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(7, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByMerchant({bool caseSensitive = true}) {
+  thenByMethod({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(8, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByMerchantDesc({bool caseSensitive = true}) {
+  thenByMethodDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(8, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByAccountId({bool caseSensitive = true}) {
+  thenBySource({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
-  thenByAccountIdDesc({bool caseSensitive = true}) {
+  thenBySourceDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(9, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  thenByMerchant({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(10, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  thenByMerchantDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(10, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  thenByAccountId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(11, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
+  thenByAccountIdDesc({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(11, sort: Sort.desc, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10);
+      return query.addSortBy(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(10, sort: Sort.desc);
+      return query.addSortBy(12, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByIsCountedAsSpend() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(11);
+      return query.addSortBy(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByIsCountedAsSpendDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(11, sort: Sort.desc);
+      return query.addSortBy(13, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByServerId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(12, caseSensitive: caseSensitive);
+      return query.addSortBy(14, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByServerIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(12, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(14, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByClientId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(13, caseSensitive: caseSensitive);
+      return query.addSortBy(15, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByClientIdDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(13, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(15, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(14);
+      return query.addSortBy(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(14, sort: Sort.desc);
+      return query.addSortBy(16, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(15);
+      return query.addSortBy(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByServerUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(15, sort: Sort.desc);
+      return query.addSortBy(17, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(16, caseSensitive: caseSensitive);
+      return query.addSortBy(18, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenBySyncStatusDesc({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(16, sort: Sort.desc, caseSensitive: caseSensitive);
+      return query.addSortBy(18, sort: Sort.desc, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(17);
+      return query.addSortBy(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByIsDeletedDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(17, sort: Sort.desc);
+      return query.addSortBy(19, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(18);
+      return query.addSortBy(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByVersionDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(18, sort: Sort.desc);
+      return query.addSortBy(20, sort: Sort.desc);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(19);
+      return query.addSortBy(21);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterSortBy>
   thenByDirtyDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(19, sort: Sort.desc);
+      return query.addSortBy(21, sort: Sort.desc);
     });
   }
 }
@@ -3028,114 +3410,128 @@ extension ExpenseCollectionQueryWhereDistinct
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctByNote({bool caseSensitive = true}) {
+  distinctByCategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(4, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctByDate() {
+  distinctBySubcategoryId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(5);
+      return query.addDistinctBy(5, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctByMethod({bool caseSensitive = true}) {
+  distinctByNote({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(6, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctBySource({bool caseSensitive = true}) {
+  distinctByDate() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(7, caseSensitive: caseSensitive);
+      return query.addDistinctBy(7);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctByMerchant({bool caseSensitive = true}) {
+  distinctByMethod({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(8, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
-  distinctByAccountId({bool caseSensitive = true}) {
+  distinctBySource({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(9, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
+  distinctByMerchant({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(10, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
+  distinctByAccountId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(11, caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(10);
+      return query.addDistinctBy(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByIsCountedAsSpend() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(11);
+      return query.addDistinctBy(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByServerId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(12, caseSensitive: caseSensitive);
+      return query.addDistinctBy(14, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByClientId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(13, caseSensitive: caseSensitive);
+      return query.addDistinctBy(15, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(14);
+      return query.addDistinctBy(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByServerUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(15);
+      return query.addDistinctBy(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctBySyncStatus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(16, caseSensitive: caseSensitive);
+      return query.addDistinctBy(18, caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByIsDeleted() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(17);
+      return query.addDistinctBy(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByVersion() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(18);
+      return query.addDistinctBy(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, ExpenseCollection, QAfterDistinct>
   distinctByDirty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(19);
+      return query.addDistinctBy(21);
     });
   }
 }
@@ -3167,103 +3563,116 @@ extension ExpenseCollectionQueryProperty1
     });
   }
 
-  QueryBuilder<ExpenseCollection, String, QAfterProperty> noteProperty() {
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
     });
   }
 
-  QueryBuilder<ExpenseCollection, DateTime, QAfterProperty> dateProperty() {
+  QueryBuilder<ExpenseCollection, String, QAfterProperty>
+  subcategoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(5);
     });
   }
 
-  QueryBuilder<ExpenseCollection, String, QAfterProperty> methodProperty() {
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> noteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(6);
     });
   }
 
-  QueryBuilder<ExpenseCollection, String, QAfterProperty> sourceProperty() {
+  QueryBuilder<ExpenseCollection, DateTime, QAfterProperty> dateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(7);
     });
   }
 
-  QueryBuilder<ExpenseCollection, String, QAfterProperty> merchantProperty() {
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> methodProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(8);
     });
   }
 
-  QueryBuilder<ExpenseCollection, String, QAfterProperty> accountIdProperty() {
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> sourceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(9);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> merchantProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(10);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, String, QAfterProperty> accountIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<ExpenseCollection, DateTime, QAfterProperty>
   createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, bool, QAfterProperty>
   isCountedAsSpendProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(11);
+      return query.addProperty(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, String?, QAfterProperty> serverIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(12);
+      return query.addProperty(14);
     });
   }
 
   QueryBuilder<ExpenseCollection, String, QAfterProperty> clientIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(13);
+      return query.addProperty(15);
     });
   }
 
   QueryBuilder<ExpenseCollection, DateTime, QAfterProperty>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(14);
+      return query.addProperty(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, DateTime?, QAfterProperty>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(15);
+      return query.addProperty(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, String, QAfterProperty> syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(16);
+      return query.addProperty(18);
     });
   }
 
   QueryBuilder<ExpenseCollection, bool, QAfterProperty> isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(17);
+      return query.addProperty(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, int, QAfterProperty> versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(18);
+      return query.addProperty(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, bool, QAfterProperty> dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(19);
+      return query.addProperty(21);
     });
   }
 }
@@ -3297,112 +3706,126 @@ extension ExpenseCollectionQueryProperty2<R>
     });
   }
 
-  QueryBuilder<ExpenseCollection, (R, String), QAfterProperty> noteProperty() {
+  QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
+  categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
+  subcategoryIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(5);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, (R, String), QAfterProperty> noteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(6);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, DateTime), QAfterProperty>
   dateProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(5);
+      return query.addProperty(7);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   methodProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(6);
+      return query.addProperty(8);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   sourceProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(7);
+      return query.addProperty(9);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   merchantProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(8);
+      return query.addProperty(10);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   accountIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(9);
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, DateTime), QAfterProperty>
   createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, bool), QAfterProperty>
   isCountedAsSpendProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(11);
+      return query.addProperty(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String?), QAfterProperty>
   serverIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(12);
+      return query.addProperty(14);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   clientIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(13);
+      return query.addProperty(15);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, DateTime), QAfterProperty>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(14);
+      return query.addProperty(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, DateTime?), QAfterProperty>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(15);
+      return query.addProperty(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, String), QAfterProperty>
   syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(16);
+      return query.addProperty(18);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, bool), QAfterProperty>
   isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(17);
+      return query.addProperty(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, int), QAfterProperty> versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(18);
+      return query.addProperty(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R, bool), QAfterProperty> dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(19);
+      return query.addProperty(21);
     });
   }
 }
@@ -3437,113 +3860,127 @@ extension ExpenseCollectionQueryProperty3<R1, R2>
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
-  noteProperty() {
+  categoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(4);
     });
   }
 
-  QueryBuilder<ExpenseCollection, (R1, R2, DateTime), QOperations>
-  dateProperty() {
+  QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
+  subcategoryIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(5);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
-  methodProperty() {
+  noteProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(6);
     });
   }
 
-  QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
-  sourceProperty() {
+  QueryBuilder<ExpenseCollection, (R1, R2, DateTime), QOperations>
+  dateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(7);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
-  merchantProperty() {
+  methodProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(8);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
-  accountIdProperty() {
+  sourceProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addProperty(9);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
+  merchantProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(10);
+    });
+  }
+
+  QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
+  accountIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addProperty(11);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, DateTime), QOperations>
   createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(10);
+      return query.addProperty(12);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, bool), QOperations>
   isCountedAsSpendProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(11);
+      return query.addProperty(13);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String?), QOperations>
   serverIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(12);
+      return query.addProperty(14);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
   clientIdProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(13);
+      return query.addProperty(15);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, DateTime), QOperations>
   updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(14);
+      return query.addProperty(16);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, DateTime?), QOperations>
   serverUpdatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(15);
+      return query.addProperty(17);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, String), QOperations>
   syncStatusProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(16);
+      return query.addProperty(18);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, bool), QOperations>
   isDeletedProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(17);
+      return query.addProperty(19);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, int), QOperations>
   versionProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(18);
+      return query.addProperty(20);
     });
   }
 
   QueryBuilder<ExpenseCollection, (R1, R2, bool), QOperations> dirtyProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addProperty(19);
+      return query.addProperty(21);
     });
   }
 }

@@ -10,7 +10,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
   AuthRepositoryImpl({FirebaseAuth? firebaseAuth, GoogleSignIn? googleSignIn})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-      _googleSignIn = googleSignIn ?? GoogleSignIn();
+      _googleSignIn =
+          googleSignIn ??
+          GoogleSignIn(
+            scopes: ['email', 'profile'],
+            // Web client ID (client_type: 3) from google-services.json.
+            // Required on Android to generate an idToken for Firebase Auth.
+            serverClientId:
+                '871767466070-q7l9tohvnuqkn5v55ll06qo9c0r6uf94.apps.googleusercontent.com',
+          );
 
   @override
   Future<UserCredential> signInWithGoogle() async {
@@ -36,7 +44,7 @@ class AuthRepositoryImpl implements AuthRepository {
         AppleIDAuthorizationScopes.fullName,
       ],
       webAuthenticationOptions: WebAuthenticationOptions(
-        clientId: 'com.surya.spendly',
+        clientId: 'com.surya.fiscora',
         redirectUri: Uri.parse(
           'https://spendly-1c600.firebaseapp.com/__/auth/handler',
         ),
@@ -52,7 +60,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    await _googleSignIn.disconnect();
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
     await _firebaseAuth.signOut();
   }
 }

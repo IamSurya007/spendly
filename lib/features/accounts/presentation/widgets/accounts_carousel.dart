@@ -49,10 +49,9 @@ class AccountsCarousel extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
         SizedBox(
           height: 120,
-          child: accountsAsync.when(
-            skipLoadingOnRefresh: true,
-            skipLoadingOnReload: true,
-            data: (accounts) {
+          child: () {
+            final accounts = accountsAsync.valueOrNull;
+            if (accounts != null) {
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
@@ -88,8 +87,11 @@ class AccountsCarousel extends ConsumerWidget {
                   );
                 },
               );
-            },
-            loading: () => ListView.builder(
+            }
+            if (accountsAsync.hasError) {
+              return const SizedBox.shrink();
+            }
+            return ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
               itemCount: 3,
@@ -102,9 +104,8 @@ class AccountsCarousel extends ConsumerWidget {
                   border: Border.all(color: AppColors.borderLight),
                 ),
               ),
-            ),
-            error: (e, _) => const SizedBox.shrink(),
-          ),
+            );
+          }(),
         ),
       ],
     );

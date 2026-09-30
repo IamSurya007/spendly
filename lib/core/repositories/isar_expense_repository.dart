@@ -1,17 +1,23 @@
+import 'dart:convert';
+
 import 'package:isar_plus/isar_plus.dart';
-import 'package:spendly/core/sync/outbox_operation.dart';
+import 'package:fiscora/core/sync/outbox_operation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:spendly/features/expenses/models/expense_model.dart';
-import 'package:spendly/features/accounts/models/account_model.dart';
-import 'package:spendly/core/sync/collections/account_collection.dart';
-import 'package:spendly/core/sync/collections/expense_collection.dart';
-import 'package:spendly/core/sync/collections/budget_collection.dart';
-import 'package:spendly/core/sync/collections/category_rule_collection.dart';
-import 'package:spendly/core/sync/isar_database.dart';
-import 'package:spendly/core/sync/sync_engine.dart';
-import 'package:spendly/core/sync/sync_metadata.dart';
-import 'package:spendly/core/repositories/i_expense_repository.dart';
+import 'package:fiscora/features/expenses/models/expense_model.dart';
+import 'package:fiscora/features/accounts/models/account_model.dart';
+import 'package:fiscora/core/sync/collections/account_collection.dart';
+import 'package:fiscora/core/sync/collections/expense_collection.dart';
+import 'package:fiscora/core/sync/collections/budget_collection.dart';
+import 'package:fiscora/core/sync/collections/category_rule_collection.dart';
+import 'package:fiscora/core/sync/collections/category_collection.dart';
+import 'package:fiscora/features/categories/models/category.dart';
+import 'package:fiscora/features/categories/services/category_registry.dart';
+import 'package:fiscora/features/categories/services/category_resolver.dart';
+import 'package:fiscora/core/sync/isar_database.dart';
+import 'package:fiscora/core/sync/sync_engine.dart';
+import 'package:fiscora/core/sync/sync_metadata.dart';
+import 'package:fiscora/core/repositories/i_expense_repository.dart';
 
 class IsarExpenseRepository implements IExpenseRepository {
   Isar get _isar => IsarDatabase.instance.isar;
@@ -28,6 +34,61 @@ class IsarExpenseRepository implements IExpenseRepository {
         .map((list) => list.map((e) => e.toDomain()).toList());
   }
 
+  /// Pushes an account balance change to the server. Bulk SMS imports touch
+  /// the same account many times, so an op that is still queued is updated
+  /// in place instead of adding another one.
+  void _enqueueAccount(Isar isar, AccountCollection accCol) {
+    accCol.syncStatus = accCol.serverId == null
+        ? SyncStatus.pendingCreate.name
+        : SyncStatus.pendingUpdate.name;
+    accCol.updatedAt = DateTime.now().toUtc();
+    isar.accountCollections.put(accCol);
+
+    final queued = isar.outboxOperations
+        .where()
+        .clientIdEqualTo(accCol.clientId)
+        .and()
+        .entityTypeEqualTo('account')
+        .and()
+        .outboxStatusEqualTo(OutboxStatus.queued.name)
+        .findFirst();
+    if (queued != null && queued.operationType != 'delete') {
+      queued.payloadJson = jsonEncode(accCol.toSyncJson());
+      isar.outboxOperations.put(queued);
+      return;
+    }
+
+    SyncEngine.enqueue(
+      isar: isar,
+      entityType: 'account',
+      clientId: accCol.clientId,
+      operationType: accCol.serverId == null ? 'create' : 'update',
+      payload: accCol.toSyncJson(),
+    );
+  }
+
+  @override
+  Future<Set<String>> getAllExpenseIds() async {
+    final ids = _isar.expenseCollections.where().clientIdProperty().findAll();
+    return ids.toSet();
+  }
+
+  @override
+  Future<List<Expense>> findExpensesNear({
+    required double amount,
+    required DateTime date,
+    Duration window = const Duration(minutes: 3),
+  }) async {
+    return _isar.expenseCollections
+        .where()
+        .amountBetween(amount - 0.001, amount + 0.001)
+        .and()
+        .dateBetween(date.subtract(window), date.add(window))
+        .findAll()
+        .map((e) => e.toDomain())
+        .toList();
+  }
+
   @override
   Future<void> addExpense(Expense expense) async {
     await _isar.writeAsync((isar) {
@@ -41,7 +102,7 @@ class IsarExpenseRepository implements IExpenseRepository {
 
       final newId = isar.expenseCollections.autoIncrement();
       final col = ExpenseCollection.fromDomain(
-        expense,
+        _withNames(isar, expense),
         syncStatus: SyncStatus.pendingCreate,
         dirty: true,
       )..id = newId;
@@ -67,6 +128,7 @@ class IsarExpenseRepository implements IExpenseRepository {
         accCol.version++;
         accCol.dirty = true;
         isar.accountCollections.put(accCol);
+        _enqueueAccount(isar, accCol);
       }
     });
 
@@ -98,6 +160,7 @@ class IsarExpenseRepository implements IExpenseRepository {
           oldAccCol.version++;
           oldAccCol.dirty = true;
           isar.accountCollections.put(oldAccCol);
+          _enqueueAccount(isar, oldAccCol);
         }
 
         // 2. Apply new expense effect on new account
@@ -112,10 +175,11 @@ class IsarExpenseRepository implements IExpenseRepository {
           newAccCol.version++;
           newAccCol.dirty = true;
           isar.accountCollections.put(newAccCol);
+          _enqueueAccount(isar, newAccCol);
         }
 
         final col = ExpenseCollection.fromDomain(
-          expense,
+          _withNames(isar, expense),
           serverId: existing.serverId,
           serverUpdatedAt: existing.serverUpdatedAt,
           syncStatus: existing.serverId == null ? SyncStatus.pendingCreate : SyncStatus.pendingUpdate,
@@ -161,6 +225,7 @@ class IsarExpenseRepository implements IExpenseRepository {
           oldAccCol.version++;
           oldAccCol.dirty = true;
           isar.accountCollections.put(oldAccCol);
+          _enqueueAccount(isar, oldAccCol);
         }
 
         if (existing.serverId == null) {
@@ -303,25 +368,64 @@ class IsarExpenseRepository implements IExpenseRepository {
     SyncEngine.instance.triggerSync();
   }
 
+
+  /// Fills category ids (from a legacy name if needed) and refreshes the
+  /// denormalised display names from the user's categories.
+  Expense _withNames(Isar isar, Expense e) {
+    var expense = e;
+    if (expense.categoryId.isEmpty) {
+      final sel = CategoryResolver.fromLegacyName(expense.category, isCredit: expense.amount < 0);
+      expense = expense.copyWith(categoryId: sel.categoryId, subcategoryId: sel.subcategoryId);
+    }
+    final r = _registry(isar).resolve(
+      expense.categoryId,
+      expense.subcategoryId,
+      isCredit: expense.amount < 0,
+    );
+    return expense.copyWith(
+      categoryId: r.parent.id,
+      subcategoryId: r.sub?.id ?? '',
+      category: r.parent.name,
+      subcategory: r.sub?.name ?? '',
+    );
+  }
+
+  CategoryRegistry _registry(Isar isar) => CategoryRegistry(
+        isar.categoryCollections
+            .where()
+            .isDeletedEqualTo(false)
+            .findAll()
+            .map((c) => c.toDomain())
+            .toList(),
+      );
+
   @override
-  Future<void> setMerchantRule(String merchant, String category) async {
-    final docName = merchant.toLowerCase().trim();
-    if (docName.isEmpty) return;
+  Future<void> setMerchantRule(String merchant, CategorySelection selection) async {
+    final trimmed = merchant.trim();
+    if (trimmed.isEmpty || selection.categoryId.isEmpty) return;
 
     await _isar.writeAsync((isar) {
+      final parentName = _registry(isar).categoryOrFallback(selection.categoryId).name;
       final existing = isar.categoryRuleCollections
           .where()
-          .merchantEqualTo(merchant.trim())
+          .merchantEqualTo(trimmed, caseSensitive: false)
           .findFirst();
 
       if (existing != null) {
-        if (existing.category != category || existing.isDeleted) {
-          existing.category = category;
-          existing.isDeleted = false;
-          existing.version++;
-          existing.dirty = true;
-          existing.syncStatus = existing.serverId == null ? SyncStatus.pendingCreate.name : SyncStatus.pendingUpdate.name;
-          existing.updatedAt = DateTime.now().toUtc();
+        if (existing.categoryId != selection.categoryId ||
+            existing.subcategoryId != selection.subcategoryId ||
+            existing.isDeleted) {
+          existing
+            ..category = parentName
+            ..categoryId = selection.categoryId
+            ..subcategoryId = selection.subcategoryId
+            ..isDeleted = false
+            ..version += 1
+            ..dirty = true
+            ..syncStatus = existing.serverId == null
+                ? SyncStatus.pendingCreate.name
+                : SyncStatus.pendingUpdate.name
+            ..updatedAt = DateTime.now().toUtc();
 
           isar.categoryRuleCollections.put(existing);
           SyncEngine.enqueue(
@@ -334,14 +438,15 @@ class IsarExpenseRepository implements IExpenseRepository {
         }
       } else {
         final clientId = _uuid.v4();
-        final newId = isar.categoryRuleCollections.autoIncrement();
         final newCol = CategoryRuleCollection.create(
           clientId: clientId,
-          merchant: merchant.trim(),
-          category: category,
+          merchant: trimmed,
+          category: parentName,
+          categoryId: selection.categoryId,
+          subcategoryId: selection.subcategoryId,
           syncStatus: SyncStatus.pendingCreate,
           dirty: true,
-        )..id = newId;
+        )..id = isar.categoryRuleCollections.autoIncrement();
 
         isar.categoryRuleCollections.put(newCol);
         SyncEngine.enqueue(
@@ -358,37 +463,43 @@ class IsarExpenseRepository implements IExpenseRepository {
   }
 
   @override
-  Future<String?> getMerchantRule(String merchant) async {
-    final trimmed = merchant.toLowerCase().trim();
+  Future<CategorySelection?> getMerchantRule(String merchant) async {
+    final trimmed = merchant.trim();
     if (trimmed.isEmpty) return null;
 
-    // Use a case-insensitive check
     final rule = _isar.categoryRuleCollections
         .where()
-        .merchantEqualTo(merchant.trim(), caseSensitive: false)
+        .merchantEqualTo(trimmed, caseSensitive: false)
         .isDeletedEqualTo(false)
         .findFirst();
-
-    return rule?.category;
+    if (rule == null) return null;
+    if (rule.categoryId.isEmpty) return CategoryResolver.fromLegacyName(rule.category);
+    return CategorySelection(rule.categoryId, rule.subcategoryId);
   }
 
   @override
-  Future<void> updateExpensesCategory(String merchant, String newCategory) async {
+  Future<void> updateExpensesCategory(String merchant, CategorySelection selection) async {
     if (merchant.trim().isEmpty) return;
 
     await _isar.writeAsync((isar) {
+      final registry = _registry(isar);
       final expenses = isar.expenseCollections
           .where()
-          .merchantEqualTo(merchant.trim())
+          .merchantEqualTo(merchant.trim(), caseSensitive: false)
           .isDeletedEqualTo(false)
           .findAll();
 
       for (final exp in expenses) {
-        exp.category = newCategory;
-        exp.version++;
-        exp.dirty = true;
-        exp.syncStatus = exp.serverId == null ? SyncStatus.pendingCreate.name : SyncStatus.pendingUpdate.name;
-        exp.updatedAt = DateTime.now().toUtc();
+        final r = registry.resolve(selection.categoryId, selection.subcategoryId, isCredit: exp.amount < 0);
+        exp
+          ..categoryId = r.parent.id
+          ..subcategoryId = r.sub?.id ?? ''
+          ..category = r.parent.name
+          ..subcategory = r.sub?.name ?? ''
+          ..version += 1
+          ..dirty = true
+          ..syncStatus = exp.serverId == null ? SyncStatus.pendingCreate.name : SyncStatus.pendingUpdate.name
+          ..updatedAt = DateTime.now().toUtc();
 
         isar.expenseCollections.put(exp);
         SyncEngine.enqueue(
