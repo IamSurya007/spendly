@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../models/chat_message_model.dart';
 import '../providers/rag_chat_provider.dart';
+import '../widgets/chat_history_sheet.dart';
 
 class SpendlyAiChatScreen extends ConsumerStatefulWidget {
   const SpendlyAiChatScreen({super.key});
@@ -141,11 +142,15 @@ class _SpendlyAiChatScreenState extends ConsumerState<SpendlyAiChatScreen>
                         ),
                       ),
                       const SizedBox(width: 5),
-                      Text(
-                        'Powered by Spendly RAG & Gemini',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 11,
+                      Expanded(
+                        child: Text(
+                          chatState.title ?? 'Powered by Spendly RAG & Gemini',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.caption.copyWith(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -156,44 +161,49 @@ class _SpendlyAiChatScreenState extends ConsumerState<SpendlyAiChatScreen>
           ],
         ),
         actions: [
-          if (messages.isNotEmpty)
+          if (messages.isNotEmpty || chatState.conversationId != null)
             IconButton(
-              tooltip: 'Clear Chat',
-              icon: Icon(Icons.delete_outline_rounded, color: Colors.white.withOpacity(0.8)),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Clear Chat History?'),
-                    content: const Text('This will clear the current session messages.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          ref.read(ragChatNotifierProvider.notifier).clearChat();
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text('Clear', style: TextStyle(color: AppColors.expenseRed)),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              tooltip: 'New chat',
+              icon: Icon(Icons.add_comment_rounded, color: Colors.white.withOpacity(0.85)),
+              onPressed: isGenerating
+                  ? null
+                  : () => ref.read(ragChatNotifierProvider.notifier).newChat(),
             ),
+          IconButton(
+            tooltip: 'Chat history',
+            icon: Icon(Icons.history_rounded, color: Colors.white.withOpacity(0.85)),
+            onPressed: () => showChatHistorySheet(context),
+          ),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
-              child: messages.isEmpty
+              child: chatState.isLoadingConversation
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+                  : chatState.loadError != null && messages.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(chatState.loadError!, textAlign: TextAlign.center, style: AppTextStyles.bodyMedium),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: () => ref.read(ragChatNotifierProvider.notifier).newChat(),
+                              child: const Text('Start a new chat'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : messages.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       itemCount: messages.length,
                       itemBuilder: (context, index) {
                         final msg = messages[index];
@@ -222,10 +232,10 @@ class _SpendlyAiChatScreenState extends ConsumerState<SpendlyAiChatScreen>
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -353,7 +363,7 @@ class _SpendlyAiChatScreenState extends ConsumerState<SpendlyAiChatScreen>
     final canSend = hasText && !isGenerating;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -471,12 +481,12 @@ class _ChatMessageBubble extends StatelessWidget {
 
     if (message.isUser) {
       return Padding(
-        padding: const EdgeInsets.only(bottom: 16, left: 40),
+        padding: const EdgeInsets.only(bottom: 12, left: 48),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF0D1B3E), Color(0xFF203864)],
@@ -509,35 +519,37 @@ class _ChatMessageBubble extends StatelessWidget {
     }
 
     // AI Assistant message
+    // Full-width bubble (no side avatar column) so answers and tables get
+    // the whole screen width.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16, right: 24),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.accent.withOpacity(0.3)),
-            ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: Color(0xFF64B5F6),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, color: Color(0xFF3D7FE8), size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Spendly AI',
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryNavy,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A), // Dark surface
                     borderRadius: const BorderRadius.only(
@@ -588,6 +600,22 @@ class _ChatMessageBubble extends StatelessWidget {
                               color: const Color(0xFF64B5F6),
                               fontFamily: 'monospace',
                             ),
+                            // Intrinsic column widths make flutter_markdown put
+                            // the table in a horizontal scroll view instead of
+                            // squeezing every column into the bubble width.
+                            tableColumnWidth: const IntrinsicColumnWidth(),
+                            tableScrollbarThumbVisibility: true,
+                            tableCellsPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            tableBorder: TableBorder.all(color: const Color(0xFF334155), width: 0.8),
+                            tableHead: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                            tableBody: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 13),
+                            tableHeadAlign: TextAlign.left,
+                            tableCellsDecoration: const BoxDecoration(color: Color(0xFF111C33)),
+                            blockSpacing: 8,
                           ),
                         ),
                         if (message.sources != null && message.sources!.isNotEmpty) ...[

@@ -14,6 +14,7 @@ import 'package:fiscora/core/sync/collections/loan_collection.dart';
 import 'package:fiscora/core/sync/collections/investment_collection.dart';
 import 'package:fiscora/core/sync/collections/budget_collection.dart';
 import 'package:fiscora/core/sync/collections/category_rule_collection.dart';
+import 'package:fiscora/core/sync/collections/category_collection.dart';
 import 'package:fiscora/core/sync/collections/account_collection.dart';
 import 'package:fiscora/core/sync/conflict_resolver.dart';
 import 'package:fiscora/core/sync/isar_database.dart';
@@ -74,29 +75,65 @@ class SyncEngine {
     });
   }
 
+  Completer<bool>? _currentSync;
+
   Future<void> _executeSync() async {
     if (_isSyncing) return;
-    _isSyncing = true;
-    try {
-      await runSyncCycle();
-    } catch (e) {
-      print('SyncEngine: Error in sync cycle: $e');
-    } finally {
-      _isSyncing = false;
-    }
+    await _runExclusive(forcePull: false);
   }
 
-  Future<void> runSyncCycle({bool forcePull = false}) async {
+  /// Runs one push + full pull and completes when local data is up to date
+  /// with the server. Callers that must not act on stale local data (e.g. the
+  /// SMS scan after a reinstall) await this. Returns false if the server
+  /// could not be reached.
+  Future<bool> syncNow() async {
+    _debounceTimer?.cancel();
+    // Let an in-flight cycle finish, then run a forced one so nothing is throttled.
+    if (_currentSync != null) {
+      await _currentSync!.future;
+    }
+    return _runExclusive(forcePull: true);
+  }
+
+  /// Local changes not yet accepted by the server.
+  Future<int> pendingOutboxCount() async {
+    return IsarDatabase.instance.isar.outboxOperations.where().count();
+  }
+
+  Future<bool> _runExclusive({required bool forcePull}) async {
+    if (_currentSync != null) return _currentSync!.future;
+    final completer = Completer<bool>();
+    _currentSync = completer;
+    _isSyncing = true;
+    var ok = true;
+    try {
+      ok = await runSyncCycle(forcePull: forcePull);
+    } catch (e) {
+      print('SyncEngine: Error in sync cycle: $e');
+      ok = false;
+    } finally {
+      _isSyncing = false;
+      _currentSync = null;
+      completer.complete(ok);
+    }
+    return ok;
+  }
+
+  /// Returns false if any pull failed (e.g. offline).
+  Future<bool> runSyncCycle({bool forcePull = false}) async {
     bool hasPendingWork = true;
     int maxCycles = 5;
     int cycles = 0;
+    var allPullsOk = true;
 
     while (hasPendingWork && cycles < maxCycles) {
       cycles++;
       final pushedCount = await pushPendingOutbox();
-      final pulledCount = await pullAllEntities(force: forcePull);
-      hasPendingWork = pushedCount > 0 || pulledCount > 0;
+      final pull = await _pullAll(force: forcePull || cycles > 1);
+      allPullsOk = allPullsOk && pull.ok;
+      hasPendingWork = pushedCount > 0 || pull.count > 0;
     }
+    return allPullsOk;
   }
 
   // Transactionally enqueues an operation to the outbox queue
@@ -229,6 +266,20 @@ class SyncEngine {
                 serverUpdatedAt: DateTime.parse(serverUpdatedAtStr),
               );
 
+              // The server already had this record (e.g. re-import after a
+              // reinstall). Its copy wins; a deleted one stays deleted.
+              if (result['isDeleted'] == true) {
+                _applyTombstone(entityType, op.clientId);
+              } else if (result['serverPayload'] is Map) {
+                _applyServerRecord(entityType, {
+                  'id': serverId,
+                  'clientId': op.clientId,
+                  'version': serverVersion,
+                  'updatedAt': serverUpdatedAtStr,
+                  'payload': Map<String, dynamic>.from(result['serverPayload'] as Map),
+                }, forceRemote: true);
+              }
+
               // Delete outbox operation upon success
               isar.outboxOperations.delete(op.id);
               processedCount++;
@@ -262,17 +313,44 @@ class SyncEngine {
     return processedCount;
   }
 
+  // Accounts first: pulled expenses reference them.
+  static const _pullOrder = [
+    'account',
+    'category',
+    'expense',
+    'loan',
+    'investment',
+    'budget',
+    'category_rule',
+  ];
+
   // Pull all entities from server
   Future<int> pullAllEntities({bool force = false}) async {
-    final entities = ['expense', 'loan', 'investment', 'budget', 'category_rule'];
+    return (await _pullAll(force: force)).count;
+  }
+
+  Future<({int count, bool ok})> _pullAll({bool force = false}) async {
     int totalPulled = 0;
-    for (final entity in entities) {
-      totalPulled += await pullEntity(entity, force: force);
+    var ok = true;
+    for (final entity in _pullOrder) {
+      final res = await _pullEntityPages(entity, force: force);
+      totalPulled += res.count;
+      ok = ok && res.ok;
     }
-    return totalPulled;
+    return (count: totalPulled, ok: ok);
   }
 
   Future<int> pullEntity(String entityType, {bool force = false}) async {
+    return (await _pullEntityPages(entityType, force: force)).count;
+  }
+
+  static const _pageSize = 200;
+  static const _maxPagesPerPull = 100;
+
+  /// Pulls every page for [entityType] until the server reports no more
+  /// changes. The 30s throttle only guards the start of a pull, never the
+  /// pages after it (previously it cut a fresh install off after 200 rows).
+  Future<({int count, bool ok})> _pullEntityPages(String entityType, {bool force = false}) async {
     final isar = IsarDatabase.instance.isar;
     final existingState = await isar.syncStates.where().entityTypeEqualTo(entityType).findFirst();
     final state = existingState ?? (SyncState()
@@ -284,46 +362,45 @@ class SyncEngine {
     if (!force && state.lastPulledAt != null) {
       final elapsed = DateTime.now().toUtc().difference(state.lastPulledAt!);
       if (elapsed.inSeconds < 30) {
-        return 0; 
+        return (count: 0, ok: true);
       }
     }
 
+    int total = 0;
     try {
-      final pullResult = await _apiClient.pull(entityType, state.lastPulledCursor);
-      final records = List<Map<String, dynamic>>.from(pullResult['records'] ?? []);
-      final tombstones = List<String>.from(pullResult['tombstones'] ?? []);
-      final nextCursor = pullResult['nextCursor'] as String?;
+      for (var page = 0; page < _maxPagesPerPull; page++) {
+        final pullResult = await _apiClient.pull(entityType, state.lastPulledCursor, limit: _pageSize);
+        final records = List<Map<String, dynamic>>.from(pullResult['records'] ?? []);
+        final tombstones = List<String>.from(pullResult['tombstones'] ?? []);
+        final nextCursor = pullResult['nextCursor'] as String?;
+        final received = records.length + tombstones.length;
+        // Older servers don't send hasMore; a full page means there may be more.
+        final hasMore = pullResult['hasMore'] as bool? ?? received >= _pageSize;
 
-      if (records.isEmpty && tombstones.isEmpty) {
-        // Save lastPulledAt even if response is empty to ensure throttling is applied
         isar.write((isar) {
+          // 1. Process deletions
+          for (final tombstoneId in tombstones) {
+            _applyTombstone(entityType, tombstoneId);
+          }
+
+          // 2. Process updates / conflict resolution
+          for (final record in records) {
+            _applyServerRecord(entityType, record);
+          }
+
+          // 3. Save sync cursor
+          if (received > 0) state.lastPulledCursor = nextCursor;
           state.lastPulledAt = DateTime.now().toUtc();
           isar.syncStates.put(state);
         });
-        return 0;
+
+        total += received;
+        if (!hasMore || received == 0) break;
       }
-
-      isar.write((isar) {
-        // 1. Process deletions
-        for (final tombstoneId in tombstones) {
-          _applyTombstone(entityType, tombstoneId);
-        }
-
-        // 2. Process updates / conflict resolution
-        for (final record in records) {
-          _applyServerRecord(entityType, record);
-        }
-
-        // 3. Save sync cursor
-        state.lastPulledCursor = nextCursor;
-        state.lastPulledAt = DateTime.now().toUtc();
-        isar.syncStates.put(state);
-      });
-
-      return records.length + tombstones.length;
+      return (count: total, ok: true);
     } catch (e) {
       print('SyncEngine: Pull failed for $entityType: $e');
-      return 0;
+      return (count: total, ok: false);
     }
   }
 
@@ -336,6 +413,22 @@ class SyncEngine {
         local.dirty = false;
         local.syncStatus = SyncStatus.synced.name;
         isar.expenseCollections.put(local);
+      } else {
+        // Keep a deleted placeholder so an SMS the user deleted on a previous
+        // install is not offered again by the inbox scan.
+        final placeholder = ExpenseCollection.fromDomain(
+          Expense(
+            id: clientId,
+            amount: 0,
+            category: '',
+            date: DateTime.fromMillisecondsSinceEpoch(0),
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+          syncStatus: SyncStatus.synced,
+          dirty: false,
+          isDeleted: true,
+        )..id = isar.expenseCollections.autoIncrement();
+        isar.expenseCollections.put(placeholder);
       }
     } else if (entityType == 'loan') {
       final local = isar.loanCollections.where().clientIdEqualTo(clientId).findFirst();
@@ -369,6 +462,14 @@ class SyncEngine {
         local.syncStatus = SyncStatus.synced.name;
         isar.categoryRuleCollections.put(local);
       }
+    } else if (entityType == 'category') {
+      final local = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (local != null) {
+        local.isDeleted = true;
+        local.dirty = false;
+        local.syncStatus = SyncStatus.synced.name;
+        isar.categoryCollections.put(local);
+      }
     } else if (entityType == 'account') {
       final local = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
       if (local != null) {
@@ -391,7 +492,7 @@ class SyncEngine {
     return newMap;
   }
 
-  void _applyServerRecord(String entityType, Map<String, dynamic> remote) {
+  void _applyServerRecord(String entityType, Map<String, dynamic> remote, {bool forceRemote = false}) {
     final isar = IsarDatabase.instance.isar;
     final clientId = remote['clientId'] as String?;
     final serverId = remote['id'] as String?;
@@ -427,7 +528,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -480,7 +581,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -533,7 +634,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -588,7 +689,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -633,6 +734,8 @@ class SyncEngine {
             clientId: clientId,
             merchant: remotePayload['merchant'] as String? ?? '',
             category: remotePayload['category'] as String? ?? 'Other',
+            categoryId: remotePayload['categoryId'] as String? ?? '',
+            subcategoryId: remotePayload['subcategoryId'] as String? ?? '',
             serverId: serverId,
             serverUpdatedAt: remoteUpdatedAt,
             syncStatus: SyncStatus.synced,
@@ -644,7 +747,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -662,6 +765,8 @@ class SyncEngine {
           clientId: clientId,
           merchant: remotePayload['merchant'] as String? ?? '',
           category: remotePayload['category'] as String? ?? 'Other',
+          categoryId: remotePayload['categoryId'] as String? ?? '',
+          subcategoryId: remotePayload['subcategoryId'] as String? ?? '',
           serverId: serverId,
           serverUpdatedAt: remoteUpdatedAt,
           syncStatus: SyncStatus.synced,
@@ -678,6 +783,54 @@ class SyncEngine {
         _saveConflictRecord(entityType, clientId, local.toSyncJson(), remotePayload);
         local.syncStatus = SyncStatus.conflict.name;
         isar.categoryRuleCollections.put(local);
+      }
+    } else if (entityType == 'category') {
+      final local = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (local == null) {
+        if (!remoteIsDeleted) {
+          final newCol = CategoryCollection.fromSyncJson(
+            clientId,
+            remotePayload,
+            serverId: serverId,
+            serverUpdatedAt: remoteUpdatedAt,
+            version: remoteVersion,
+          )..id = isar.categoryCollections.autoIncrement();
+          isar.categoryCollections.put(newCol);
+        }
+        return;
+      }
+
+      final res = _resolve(forceRemote,
+        entityType: entityType,
+        localIsDirty: local.dirty,
+        localVersion: local.version,
+        localUpdatedAt: local.updatedAt,
+        localIsDeleted: local.isDeleted,
+        remoteVersion: remoteVersion,
+        remoteUpdatedAt: remoteUpdatedAt,
+        remoteIsDeleted: remoteIsDeleted,
+        localPayload: local.toSyncJson(),
+        remotePayload: remotePayload,
+      );
+
+      if (res.action == ConflictResolution.useRemote) {
+        final updatedCol = CategoryCollection.fromSyncJson(
+          clientId,
+          remotePayload,
+          serverId: serverId,
+          serverUpdatedAt: remoteUpdatedAt,
+          version: remoteVersion,
+        )..id = local.id;
+        isar.categoryCollections.put(updatedCol);
+      } else if (res.action == ConflictResolution.delete) {
+        local.isDeleted = true;
+        local.dirty = false;
+        local.syncStatus = SyncStatus.synced.name;
+        isar.categoryCollections.put(local);
+      } else if (res.action == ConflictResolution.conflict) {
+        _saveConflictRecord(entityType, clientId, local.toSyncJson(), remotePayload);
+        local.syncStatus = SyncStatus.conflict.name;
+        isar.categoryCollections.put(local);
       }
     } else if (entityType == 'account') {
       final local = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
@@ -698,7 +851,7 @@ class SyncEngine {
         return;
       }
 
-      final res = ConflictResolver.resolve(
+      final res = _resolve(forceRemote,
         entityType: entityType,
         localIsDirty: local.dirty,
         localVersion: local.version,
@@ -735,6 +888,34 @@ class SyncEngine {
     }
   }
 
+  ResolutionResult _resolve(
+    bool forceRemote, {
+    required String entityType,
+    required bool localIsDirty,
+    required int localVersion,
+    required DateTime localUpdatedAt,
+    required bool localIsDeleted,
+    required int remoteVersion,
+    required DateTime remoteUpdatedAt,
+    required bool remoteIsDeleted,
+    required Map<String, dynamic> localPayload,
+    required Map<String, dynamic> remotePayload,
+  }) {
+    if (forceRemote) return ResolutionResult(ConflictResolution.useRemote);
+    return ConflictResolver.resolve(
+      entityType: entityType,
+      localIsDirty: localIsDirty,
+      localVersion: localVersion,
+      localUpdatedAt: localUpdatedAt,
+      localIsDeleted: localIsDeleted,
+      remoteVersion: remoteVersion,
+      remoteUpdatedAt: remoteUpdatedAt,
+      remoteIsDeleted: remoteIsDeleted,
+      localPayload: localPayload,
+      remotePayload: remotePayload,
+    );
+  }
+
   void _saveConflictRecord(
     String entityType,
     String clientId,
@@ -769,6 +950,9 @@ class SyncEngine {
       return res?.version ?? 1;
     } else if (entityType == 'category_rule') {
       final res = isar.categoryRuleCollections.where().clientIdEqualTo(clientId).findFirst();
+      return res?.version ?? 1;
+    } else if (entityType == 'category') {
+      final res = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
       return res?.version ?? 1;
     } else if (entityType == 'account') {
       final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
@@ -835,6 +1019,16 @@ class SyncEngine {
         res.dirty = false;
         isar.categoryRuleCollections.put(res);
       }
+    } else if (entityType == 'category') {
+      final res = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.serverId = serverId;
+        res.version = serverVersion;
+        res.serverUpdatedAt = serverUpdatedAt;
+        res.syncStatus = SyncStatus.synced.name;
+        res.dirty = false;
+        isar.categoryCollections.put(res);
+      }
     } else if (entityType == 'account') {
       final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
       if (res != null) {
@@ -885,6 +1079,20 @@ class SyncEngine {
         isar.categoryRuleCollections.put(res);
         _saveConflictRecord(entityType, clientId, res.toSyncJson(), remotePayload);
       }
+    } else if (entityType == 'category') {
+      final res = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.syncStatus = SyncStatus.conflict.name;
+        isar.categoryCollections.put(res);
+        _saveConflictRecord(entityType, clientId, res.toSyncJson(), remotePayload);
+      }
+    } else if (entityType == 'account') {
+      final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.syncStatus = SyncStatus.conflict.name;
+        isar.accountCollections.put(res);
+        _saveConflictRecord(entityType, clientId, res.toSyncJson(), remotePayload);
+      }
     }
   }
 
@@ -919,6 +1127,18 @@ class SyncEngine {
       if (res != null) {
         res.syncStatus = SyncStatus.failed.name;
         isar.categoryRuleCollections.put(res);
+      }
+    } else if (entityType == 'category') {
+      final res = isar.categoryCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.syncStatus = SyncStatus.failed.name;
+        isar.categoryCollections.put(res);
+      }
+    } else if (entityType == 'account') {
+      final res = isar.accountCollections.where().clientIdEqualTo(clientId).findFirst();
+      if (res != null) {
+        res.syncStatus = SyncStatus.failed.name;
+        isar.accountCollections.put(res);
       }
     }
   }

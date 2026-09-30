@@ -2,14 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import 'core/widgets/app_bottom_nav.dart';
 import 'core/constants/app_colors.dart';
 import 'core/providers/repository_providers.dart';
 import 'core/services/sms_parser_service.dart';
-import 'core/services/sms_account_resolver.dart';
-import 'features/accounts/models/account_model.dart';
-import 'features/expenses/models/expense_model.dart';
+import 'core/services/sms_import_service.dart';
 import 'features/expenses/services/expense_providers.dart';
 import 'features/home/presentation/screens/home_screen.dart';
 import 'features/expenses/screens/expenses_screen.dart';
@@ -79,15 +76,16 @@ class _AppShellState extends ConsumerState<AppShell>
 
     if (pendingList.length >= _batchToastThreshold) {
       // Save all transactions silently
+      var saved = 0;
       for (final txn in pendingList) {
-        await _autoSaveSmsTransaction(txn, showToast: false);
+        if (await _autoSaveSmsTransaction(txn, showToast: false)) saved++;
       }
       await _smsService.clearPendingTransactions();
 
-      if (mounted) {
+      if (mounted && saved > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚡ ${pendingList.length} new transactions synced'),
+            content: Text('⚡ $saved new transactions synced'),
             backgroundColor: AppColors.primaryNavy,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 5),
@@ -115,103 +113,14 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
-  Future<void> _autoSaveSmsTransaction(ParsedSms txn, {bool showToast = true}) async {
-    final expenseRepo = ref.read(expenseRepositoryProvider);
-    final ruleCategory = await expenseRepo.getMerchantRule(txn.merchant);
-
-    // Heuristics mapping to category names
-    String category = ruleCategory ?? (txn.isDebit ? 'Spends' : 'Other');
-    if (ruleCategory == null) {
-      final cleanMerchant = txn.merchant.toLowerCase();
-      if (cleanMerchant.contains('rent')) {
-        category = 'Rent';
-      } else if (cleanMerchant.contains('swiggy') ||
-          cleanMerchant.contains('zomato') ||
-          cleanMerchant.contains('dining') ||
-          cleanMerchant.contains('restaurant') ||
-          cleanMerchant.contains('eats')) {
-        category = 'Restaurants';
-      } else if (cleanMerchant.contains('grocer') ||
-          cleanMerchant.contains('jiomart') ||
-          cleanMerchant.contains('blinkit') ||
-          cleanMerchant.contains('bigbasket')) {
-        category = 'Groceries';
-      } else if (cleanMerchant.contains('coffee') ||
-          cleanMerchant.contains('starbucks') ||
-          cleanMerchant.contains('chai')) {
-        category = 'Coffee & Snacks';
-      } else if (cleanMerchant.contains('electricity') ||
-          cleanMerchant.contains('power')) {
-        category = 'Electricity';
-      } else if (cleanMerchant.contains('water')) {
-        category = 'Water Bill';
-      } else if (cleanMerchant.contains('gas') ||
-          cleanMerchant.contains('indane') ||
-          cleanMerchant.contains('hp')) {
-        category = 'Gas';
-      } else if (cleanMerchant.contains('wifi') ||
-          cleanMerchant.contains('internet') ||
-          cleanMerchant.contains('actfibernet') ||
-          cleanMerchant.contains('broadband')) {
-        category = 'Internet';
-      } else if (cleanMerchant.contains('ola') ||
-          cleanMerchant.contains('uber') ||
-          cleanMerchant.contains('cab') ||
-          cleanMerchant.contains('auto')) {
-        category = 'Auto / Cab';
-      } else if (cleanMerchant.contains('metro') ||
-          cleanMerchant.contains('bus') ||
-          cleanMerchant.contains('train') ||
-          cleanMerchant.contains('irctc')) {
-        category = 'Public Transport';
-      } else if (cleanMerchant.contains('fuel') ||
-          cleanMerchant.contains('petrol') ||
-          cleanMerchant.contains('shell') ||
-          cleanMerchant.contains('iocl') ||
-          cleanMerchant.contains('hpcl')) {
-        category = 'Fuel';
-      } else if (cleanMerchant.contains('cc bill') ||
-          cleanMerchant.contains('credit card') ||
-          cleanMerchant.contains('card bill')) {
-        category = 'CC Bill';
-      } else if (cleanMerchant.contains('splitwise')) {
-        category = 'Splitwise';
-      }
-    }
-
-    final savedAmount = txn.isDebit ? txn.amount : -txn.amount;
-
-    final accountRepo = ref.read(accountRepositoryProvider);
-    final accountResolver = SmsAccountResolver(accountRepo);
-    final resolvedAccountId = await accountResolver.resolveAccountId(txn);
-
-    final txnId = const Uuid().v5(
-      Namespace.url.value,
-      'fiscora:sms:${txn.date.millisecondsSinceEpoch}_${txn.amount}_${txn.merchant}',
+  /// Returns true if a new expense was saved (false for duplicates).
+  Future<bool> _autoSaveSmsTransaction(ParsedSms txn, {bool showToast = true}) async {
+    final importer = SmsImportService(
+      ref.read(expenseRepositoryProvider),
+      ref.read(accountRepositoryProvider),
     );
-
-    final expense = Expense(
-      id: txnId,
-      amount: savedAmount,
-      category: category,
-      note: 'Auto-captured from SMS',
-      date: txn.date,
-      method: txn.accountType == AccountType.credit_card
-          ? 'card'
-          : (txn.accountType == AccountType.cash ? 'cash' : 'upi'),
-      merchant: txn.merchant,
-      accountId: resolvedAccountId,
-      createdAt: DateTime.now(),
-    );
-
-    // Save mapping rule if it didn't exist
-    if (txn.merchant.isNotEmpty && ruleCategory == null) {
-      await ref
-          .read(expenseNotifierProvider.notifier)
-          .setMerchantRule(txn.merchant, category);
-    }
-
-    await ref.read(expenseNotifierProvider.notifier).addExpense(expense);
+    final expense = await importer.import(txn, note: 'Auto-captured from SMS');
+    if (expense == null) return false;
 
     if (showToast && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -237,6 +146,7 @@ class _AppShellState extends ConsumerState<AppShell>
         ),
       );
     }
+    return true;
   }
 
   void _handleNavTap(int index) {

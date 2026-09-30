@@ -3,6 +3,7 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/accounts/models/account_model.dart';
+import 'sms_dedup.dart';
 
 /// Prefilled transaction details extracted from SMS.
 class ParsedSms {
@@ -16,6 +17,13 @@ class ParsedSms {
   final DateTime date;
   final String body;
 
+  /// Raw sender header, e.g. "VM-HDFCBK".
+  final String sender;
+
+  /// Network "sent" timestamp of the SMS in ms (inbox `date_sent` /
+  /// PDU `timestampMillis`). Falls back to [date] when unknown.
+  final int? sentAtMs;
+
   const ParsedSms({
     required this.amount,
     required this.merchant,
@@ -26,7 +34,37 @@ class ParsedSms {
     required this.isDebit,
     required this.date,
     required this.body,
+    this.sender = '',
+    this.sentAtMs,
   });
+
+  /// Stable, install-independent id for this SMS. Used as the expense id.
+  String get dedupKey => SmsDedup.key(
+        sender: sender,
+        sentAtMs: sentAtMs ?? date.millisecondsSinceEpoch,
+        body: body,
+      );
+
+  /// Id that builds before the v2 key would have produced.
+  String get legacyKey => SmsDedup.legacyKey(
+        dateMs: date.millisecondsSinceEpoch,
+        amount: amount,
+        merchant: merchant,
+      );
+
+  ParsedSms withSource({required String sender, int? sentAtMs}) => ParsedSms(
+        amount: amount,
+        merchant: merchant,
+        account: account,
+        bankName: bankName,
+        accountSnippet: accountSnippet,
+        accountType: accountType,
+        isDebit: isDebit,
+        date: date,
+        body: body,
+        sender: sender,
+        sentAtMs: sentAtMs,
+      );
 
   Map<String, dynamic> toJson() => {
         'amount': amount,
@@ -38,7 +76,16 @@ class ParsedSms {
         'isDebit': isDebit,
         'date': date.toIso8601String(),
         'body': body,
+        'sender': sender,
+        'sentAtMs': sentAtMs,
       };
+}
+
+class SmsScanException implements Exception {
+  final String message;
+  SmsScanException(this.message);
+  @override
+  String toString() => message;
 }
 
 /// Service to handle SMS permissions, scanning local SMS inbox, and
@@ -47,11 +94,13 @@ class SmsParserService {
   static const _channel = MethodChannel('com.surya.fiscora/sms_channel');
   final SmsQuery _query = SmsQuery();
 
-  /// Requests SMS and Notification permissions on Android.
+  /// Requests SMS permission (required to scan). Notification permission is
+  /// only needed for auto-capture alerts, so it is requested but not required.
   Future<bool> requestPermissions() async {
     final smsStatus = await Permission.sms.request();
-    final notifStatus = await Permission.notification.request();
-    return smsStatus.isGranted && notifStatus.isGranted;
+    // A denied notification permission must not block scanning.
+    Permission.notification.request().ignore();
+    return smsStatus.isGranted;
   }
 
   /// Scans the last [limit] messages in the device inbox and returns parsed transactions.
@@ -73,13 +122,17 @@ class SmsParserService {
         if (body != null && _isLikelyTransactionalSender(sender)) {
           final parsed = parseSmsBody(body, date ?? DateTime.now(), sender: sender);
           if (parsed != null) {
-            transactions.add(parsed);
+            final sent = msg.dateSent?.millisecondsSinceEpoch;
+            transactions.add(parsed.withSource(
+              sender: sender,
+              sentAtMs: (sent != null && sent > 0) ? sent : date?.millisecondsSinceEpoch,
+            ));
           }
         }
       }
       return transactions;
     } catch (e) {
-      return [];
+      throw SmsScanException('Could not read your SMS inbox: $e');
     }
   }
 
@@ -145,13 +198,23 @@ class SmsParserService {
     final amount = amountVal is num ? amountVal.toDouble() : 0.0;
     if (amount <= 0) return null;
 
+    int? asInt(dynamic v) =>
+        v is num ? v.toInt() : (v is String ? int.tryParse(v) : null);
+    final sentAtMs = asInt(map['sentAtMs']);
+    final receivedAtMs = asInt(map['receivedAtMs']);
+
     final dateStr = map['date'] as String? ?? '';
-    final date = DateTime.tryParse(dateStr) ?? DateTime.now();
+    final date = receivedAtMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(receivedAtMs)
+        : (DateTime.tryParse(dateStr) ?? DateTime.now());
     final body = map['body'] as String? ?? '';
     final sender = map['sender'] as String? ?? '';
 
-    return parseSmsBody(body, date, sender: sender) ??
-        ParsedSms(
+    final parsed = parseSmsBody(body, date, sender: sender);
+    if (parsed != null) {
+      return parsed.withSource(sender: sender, sentAtMs: sentAtMs);
+    }
+    return ParsedSms(
           amount: amount,
           merchant: map['merchant'] as String? ?? 'Unknown Merchant',
           account: 'SMS Account',
@@ -161,6 +224,8 @@ class SmsParserService {
           isDebit: map['isDebit'] as bool? ?? true,
           date: date,
           body: body,
+          sender: sender,
+          sentAtMs: sentAtMs,
         );
   }
 
